@@ -130,6 +130,7 @@ def filter_parent_objects(objects:List[Dict]) -> List[Dict]:
 
 generated_class="""\
 import typing
+import pathlib
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -144,6 +145,7 @@ class {1}({2}):
 
 generated_function="""\
 import typing
+import pathlib
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

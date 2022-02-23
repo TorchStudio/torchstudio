@@ -93,17 +93,23 @@ class MetaDataset(Dataset):
             sample=[sample]
 
         #convert each element of the list to a tensor if needed
+        sample_tensors=[]
         for i in range(len(sample)):
             if type(sample[i]) is not torch.Tensor:
                 if 'PIL' in str(type(sample[i])) or 'numpy' in str(type(sample[i])):
-                    sample[i] = to_tensor(sample[i])
+                    sample_tensors.append(to_tensor(sample[i]))
                 else:
-                    sample[i] = torch.tensor(sample[i])
+                    try:
+                        sample_tensors.append(torch.tensor(sample[i]))
+                    except:
+                        pass
+            else:
+                sample_tensors.append(sample[i])
 
         #and finally solidify into a tuple
-        sample=tuple(sample)
+        sample_tensors=tuple(sample_tensors)
 
-        return sample
+        return sample_tensors
 
 original_path=sys.path
 original_dir=os.getcwd()
