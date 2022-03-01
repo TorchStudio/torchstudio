@@ -202,8 +202,7 @@ while True:
         valid_loader = torch.utils.data.DataLoader(valid_dataset,batch_size=batch_size, shuffle=False, pin_memory=pin_memory)
 
     if msg_type == 'StartTraining' and modules_valid:
-        train_bar = tqdm(total=epochs, desc='Training...', bar_format='{desc} epoch '+str(scheduler.last_epoch)+'\n\n')
-        train_bar.update(scheduler.last_epoch)
+        print("Training... epoch "+str(scheduler.last_epoch)+"\n", file=sys.stderr)
 
     if msg_type == 'TrainOneEpoch' and modules_valid:
         #training
@@ -277,12 +276,17 @@ while True:
 
         tc.send_msg(app_socket, 'Trained')
 
-        train_bar.bar_format='{desc} epoch {n_fmt} | {remaining} left |{rate_fmt}\n\n'
+        #create train_bar only after first successful training to avoid ghost progress message after an error
+        if train_bar is not None:
+            train_bar.bar_format='{desc} epoch {n_fmt} | {remaining} left |{rate_fmt}\n\n'
+        else:
+            train_bar = tqdm(total=epochs, desc='Training...', bar_format='{desc} epoch '+str(scheduler.last_epoch)+'\n\n')
         train_bar.update(1)
 
     if msg_type == 'StopTraining' and modules_valid:
         if train_bar is not None:
             train_bar.close()
+            train_bar=None
         print("Training stopped at epoch "+str(scheduler.last_epoch-1), file=sys.stderr)
 
     if msg_type == 'SetInputTensors' or msg_type == 'InferTensors':

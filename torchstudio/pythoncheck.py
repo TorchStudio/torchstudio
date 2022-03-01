@@ -35,8 +35,8 @@ for module_check in checked_modules:
             from importlib_metadata import version
         else:
             from importlib.metadata import version
-        pytorch_version=tuple(int(i) for i in version('torch').split('.'))
-        min_pytorch_version=(1,9,0) if args.remote else (1,10,0) #1.9 required for torch.package support, 1.10 required for stable torch.fx and profile-directed typing in torchscript
+        pytorch_version=tuple(int(i) for i in version('torch').split('.')[:2])
+        min_pytorch_version=(1,9) if args.remote else (1,10) #1.9 required for torch.package support, 1.10 required for stable torch.fx and profile-directed typing in torchscript
         if pytorch_version<min_pytorch_version:
             print("Error: PyTorch "+str(min_pytorch_version[0])+"."+str(min_pytorch_version[1])+" minimum is required.", file=sys.stderr)
             print("This environment has PyTorch "+str(pytorch_version[0])+"."+str(pytorch_version[1])+".", file=sys.stderr)

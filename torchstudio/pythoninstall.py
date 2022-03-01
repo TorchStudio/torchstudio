@@ -25,7 +25,7 @@ if sys.platform.startswith('win'):
     else:
         conda_install="pytorch torchvision torchaudio cpuonly datasets scipy pandas matplotlib-base python-graphviz paramiko pysoundfile"
 elif sys.platform.startswith('darwin'):
-    conda_install="pytorch torchvision torchaudio datasets scipy pandas matplotlib-base python-graphviz paramiko"
+    conda_install="nomkl pytorch torchvision torchaudio datasets scipy pandas matplotlib-base python-graphviz paramiko"
 elif sys.platform.startswith('linux'):
     if args.gpu:
         conda_install="pytorch torchvision torchaudio cudatoolkit=11.3 datasets scipy pandas matplotlib-base python-graphviz paramiko"
