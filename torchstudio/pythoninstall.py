@@ -25,7 +25,8 @@ if sys.platform.startswith('win'):
     else:
         conda_install="pytorch torchvision torchaudio cpuonly datasets scipy pandas matplotlib-base python-graphviz paramiko pysoundfile"
 elif sys.platform.startswith('darwin'):
-    conda_install="nomkl pytorch torchvision torchaudio datasets scipy pandas matplotlib-base python-graphviz paramiko"
+    # force a pytorch/mkl version, because pytorch 1.10.2+ depends on mkl 2022 which is incompatible with Rosetta 2 in M1 macs
+    conda_install="pytorch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 mkl==2021.4.0 datasets scipy pandas matplotlib-base python-graphviz paramiko"
 elif sys.platform.startswith('linux'):
     if args.gpu:
         conda_install="pytorch torchvision torchaudio cudatoolkit=11.3 datasets scipy pandas matplotlib-base python-graphviz paramiko"
@@ -40,7 +41,7 @@ print("Downloading and installing PyTorch and additional packages:")
 print(conda_install)
 print("")
 
-# channels: pytorch for pytorch torchvision torchaudio, nvidia for cudatoolkit=11.1 on Linux, huggingface for datasets(+huggingface_hub), conda-forge for everything else except anaconda for python-graphviz
+# channels: pytorch for pytorch torchvision torchaudio, nvidia for cudatoolkit=11.1 on Linux, huggingface for datasets(+huggingface_hub), conda-forge for everything else except anaconda for python-graphviz and ngam for osx-arm64 torchaudio
 conda_install+=" -c pytorch -c nvidia -c huggingface -c conda-forge -c anaconda"
 
 # https://stackoverflow.com/questions/41767340/using-conda-install-within-a-python-script
