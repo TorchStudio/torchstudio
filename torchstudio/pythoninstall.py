@@ -41,7 +41,7 @@ print("Downloading and installing PyTorch and additional packages:")
 print(conda_install)
 print("")
 
-# channels: pytorch for pytorch torchvision torchaudio, nvidia for cudatoolkit=11.1 on Linux, huggingface for datasets(+huggingface_hub), conda-forge for everything else except anaconda for python-graphviz and ngam for osx-arm64 torchaudio
+# channels: pytorch for pytorch torchvision torchaudio, nvidia for cudatoolkit=11.1 on Linux, huggingface for datasets(+huggingface_hub), conda-forge for everything else except anaconda for python-graphviz
 conda_install+=" -c pytorch -c nvidia -c huggingface -c conda-forge -c anaconda"
 
 # https://stackoverflow.com/questions/41767340/using-conda-install-within-a-python-script
