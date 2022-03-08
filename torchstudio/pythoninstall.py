@@ -25,8 +25,8 @@ if sys.platform.startswith('win'):
     else:
         conda_install="pytorch torchvision torchaudio cpuonly datasets scipy pandas matplotlib-base python-graphviz paramiko pysoundfile"
 elif sys.platform.startswith('darwin'):
-    # force a pytorch/mkl version, because pytorch 1.10.2+ depends on mkl 2022 which is incompatible with Rosetta 2 in M1 macs
-    conda_install="pytorch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 mkl==2021.4.0 datasets scipy pandas matplotlib-base python-graphviz paramiko"
+    # force a pytorch/mkl version, because pytorch 1.10.2+ depends on mkl 2022 which is incompatible with Rosetta 2 in M1 macs, and update cffi 1.15.0-py39hc55c11b_1 to 1.15.0-py39he338e87_0+ to avoid paramiko error
+    conda_install="pytorch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 mkl==2021.4.0 datasets scipy pandas matplotlib-base python-graphviz paramiko cffi"
 elif sys.platform.startswith('linux'):
     if args.gpu:
         conda_install="pytorch torchvision torchaudio cudatoolkit=11.3 datasets scipy pandas matplotlib-base python-graphviz paramiko"
