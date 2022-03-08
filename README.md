@@ -5,7 +5,7 @@ The torchstudio package contains 2 levels of scripts:
 - Modules (files in the subfolders of the torchstudio package folder)
 - Root (files in the torchstudio package folder)
 
-![TorhStudio Architecture](architecture.svg)
+![TorchStudio Architecture](architecture.svg)
 
 Modules
 -------
