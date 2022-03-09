@@ -1,7 +1,6 @@
 from torchstudio.modules import Analyzer
 from typing import List
 import numpy as np
-import torch
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import PIL
