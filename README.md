@@ -49,8 +49,7 @@ The root scripts are management routines interfacing the modules and other proce
 Dependencies
 ------------
 
-Windows users will need to install the [Microsoft Visual C++ Redistributable packages for Visual Studio 2015, 2017, 2019, and 2022]
-(https://docs.microsoft.com/en-US/cpp/windows/latest-supported-vc-redist?view=msvc-170).
+Windows users will need to install the [Microsoft Visual C++ Redistributable packages for Visual Studio 2015, 2017, 2019, and 2022](https://docs.microsoft.com/en-US/cpp/windows/latest-supported-vc-redist?view=msvc-170).
 
 <html>
 <body>
