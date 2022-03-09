@@ -13,6 +13,10 @@ import time
 from collections.abc import Iterable
 from tqdm.auto import tqdm
 
+#monkey patch ssl to fix ssl certificate fail when downloading datasets on some configurations: https://stackoverflow.com/questions/27835619/urllib-and-ssl-certificate-verify-failed-error
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+
 meta_dataset = None
 input_tensors_id = []
 output_tensors_id = []
