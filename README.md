@@ -44,3 +44,25 @@ The root scripts are management routines interfacing the modules and other proce
 - **sshtunnel.py**: ssh tunnel to execute scripts remotely as if they were local (started locally to launch remote scripts)
 - **tcpcodec.py**: tcp socket communication functions (used locally and remotely by the other root scripts)
 - **tensorrender.py**: handles the rendering of tensors into images (started locally by the tensor displays in the Dataset and Model tabs)
+
+
+Dependencies
+------------
+
+Windows users will need to install the [Microsoft Visual C++ Redistributable packages for Visual Studio 2015, 2017, 2019, and 2022]
+(https://docs.microsoft.com/en-US/cpp/windows/latest-supported-vc-redist?view=msvc-170).
+
+<html>
+<body>
+<!--StartFragment-->
+
+Architecture | Link | Notes
+-- | -- | --
+ARM64 | https://aka.ms/vs/17/release/vc_redist.arm64.exe | Permalink for latest supported ARM64 version
+X86 | https://aka.ms/vs/17/release/vc_redist.x86.exe | Permalink for latest supported x86 version
+X64 | https://aka.ms/vs/17/release/vc_redist.x64.exe | Permalink for latest supported x64 version. The X64 redistributable package contains both ARM64 and X64 binaries. This package makes it easy to install required Visual C++ ARM64 binaries when the X64 redistributable is installed on an ARM64 device.
+
+<!--EndFragment-->
+</body>
+</html>
+
