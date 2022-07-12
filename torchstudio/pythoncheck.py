@@ -2,6 +2,7 @@ import sys
 
 print("Checking Python version...\n", file=sys.stderr)
 
+import platform
 import argparse
 import importlib
 
@@ -23,8 +24,8 @@ print("Checking required packages...\n", file=sys.stderr)
 checked_modules = ["torch", "torchvision"]
 required_packages = ["pytorch", "torchvision"]
 if not args.remote:
-    checked_modules += ["torchaudio", "matplotlib", "graphviz"]
-    required_packages += ["torchaudio", "matplotlib-base", "python-graphviz"]
+    checked_modules += ["torchaudio", "torchtext", "matplotlib", "graphviz"]
+    required_packages += ["torchaudio", "torchtext", "matplotlib-base", "python-graphviz"]
 missing_modules = []
 for module_check in checked_modules:
     module = importlib.util.find_spec(module_check)
@@ -46,6 +47,7 @@ if len(missing_modules)>0:
     #warn about missing modules
     print("Error: Missing Python modules:", file=sys.stderr)
     print(*missing_modules, sep = " ", file=sys.stderr)
+    print("", file=sys.stderr)
     print("The following packages are required:", file=sys.stderr)
     print(' '.join(required_packages), file=sys.stderr)
     exit(1)
@@ -75,12 +77,15 @@ else:
     devices['cpu'] = {'name': 'CPU', 'pin_memory': False}
     for i in range(torch.cuda.device_count()):
         devices['cuda:'+str(i)] = {'name': torch.cuda.get_device_name(i), 'pin_memory': True}
+    if pytorch_version>=(1,12):
+        if torch.backends.mps.is_available():
+            devices['mps'] = {'name': 'Metal Acceleration', 'pin_memory': False}
     #other possible devices:
     #'hpu' (https://docs.habana.ai/en/latest/PyTorch_User_Guide/PyTorch_User_Guide.html)
     #'dml' (https://docs.microsoft.com/en-us/windows/ai/directml/gpu-pytorch-windows)
     devices_string_list=[]
     for id in devices:
         devices_string_list.append(devices[id]['name']+" ("+id+")")
-    print(("Online and functional " if args.remote else "Functional environment ")+"(Python "+str(python_version[0])+"."+str(python_version[1])+", PyTorch "+str(pytorch_version[0])+"."+str(pytorch_version[1])+", Devices: "+", ".join(devices_string_list)+")");
+    print(("Online and functional " if args.remote else "Functional ")+"("+platform.platform()+", Python "+str(python_version[0])+"."+str(python_version[1])+", PyTorch "+str(pytorch_version[0])+"."+str(pytorch_version[1])+", Devices: "+", ".join(devices_string_list)+")");
 
 

@@ -234,7 +234,7 @@ while True:
                 for tensor in output_tensors:
                     metric.append("Accuracy")
 
-                tc.send_msg(app_socket, 'SetHyperParametersValues', tc.encode_ints([128,0,100,0]))
+                tc.send_msg(app_socket, 'SetHyperParametersValues', tc.encode_ints([128,0,100,1,1,1]))
                 tc.send_msg(app_socket, 'SetHyperParametersNames', tc.encode_strings(loss+metric+['Adam','Step']))
 
     if msg_type == 'Exit':

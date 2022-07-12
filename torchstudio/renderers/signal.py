@@ -17,16 +17,19 @@ class Signal(Renderer):
     Args:
         min: Minimum value
         max: Maximum value
-        auto_resize: Auto resize if needed
+        scale: Can have the following values:
+            'fixed': use the min and max values defined by the user
+            'fit': use the min and max values of the signal
+            'auto': fit when the values are beyond the user-defined min and max values
         colors: List of colors for each channel
         grid: Display grid
         legend: Display legend with more than one channel
     """
-    def __init__(self, min=-1, max=1, auto_resize=False, colors=['#ff0000','#00ff00','#5050ff','#ffff00','#00ffff','#ff00ff'], grid=True, legend=True):
+    def __init__(self, min=-1, max=1, scale='auto', colors=['#ff0000','#00ff00','#5050ff','#ffff00','#00ffff','#ff00ff'], grid=True, legend=True):
         super().__init__()
         self.min=min
         self.max=max
-        self.auto_resize=auto_resize
+        self.scale=scale
         self.colors=colors
         self.grid=grid
         self.legend=legend
@@ -48,11 +51,20 @@ class Signal(Renderer):
         plt.gca().spines['left'].set_color('#707070')
         plt.gca().spines['bottom'].set_color('#707070')
 
+
         #fit
         xmin=0
         xmax=tensor.shape[1]
-        ymin=self.min if self.auto_resize==False else min(self.min,np.amin(tensor))
-        ymax=self.max if self.auto_resize==False else max(self.max,np.amax(tensor))
+        if self.scale=='fixed':
+            ymin=self.min
+            ymax=self.max
+        else:
+            if self.scale=='fit':
+                ymin=np.amin(tensor)
+                ymax=np.amax(tensor)
+            if self.scale=='auto':
+                ymin=min(self.min,np.amin(tensor))
+                ymax=max(self.max,np.amax(tensor))
 
         #shift
         render_size=(xmax-xmin,ymax-ymin)
@@ -72,9 +84,9 @@ class Signal(Renderer):
         plt.axis(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax)
         for i in range(tensor.shape[0]):
             plt.plot(tensor[[i]].flatten().tolist(),label=str(i) if i>=len(labels) else labels[i],color=self.colors[i%len(self.colors)])
-        if(self.legend and tensor.shape[0]>1):
+        if self.legend and tensor.shape[0]>1 and tensor.shape[0]<=len(self.colors):
             plt.legend(bbox_to_anchor=(1, 1), loc='upper right', ncol=1, prop={'size': 8})
-        if(self.grid):
+        if self.grid:
             plt.grid(color = '#303030')
         plt.tight_layout(pad=0)
 

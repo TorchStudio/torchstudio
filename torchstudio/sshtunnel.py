@@ -96,14 +96,14 @@ class ReverseTunnelHandler(threading.Thread):
         self._transfer_data(src_socket=dst,dest_socket=rev)
 
     def _transfer_data(self,src_socket,dest_socket):
-        dest_socket.setblocking(False)
+        dest_socket.setblocking(True)
         data = src_socket.recv(1024)
 
         if len(data):
             try:
                 dest_socket.send(data)
             except Exception as e:
-                print(e)
+                print(f"ssh error: {type(e).__name__}", file=sys.stderr)
 
     def stop(self):
         self.rev_socket.shutdown(2)
@@ -126,7 +126,7 @@ class ReverseTunnelHandler(threading.Thread):
                     try:
                         callback(dst=self.dst_socket,rev=self.rev_socket)
                     except Exception as e:
-                        print(e)
+                        print(f"ssh error: {type(e).__name__}", file=sys.stderr)
                 time.sleep(0)
 
 
@@ -186,7 +186,7 @@ class ForwardTunnelHandler(socketserver.BaseRequestHandler):
         self._transfer_data(src_socket=sock,dest_socket=self.request)
 
     def _transfer_data(self,src_socket,dest_socket):
-        src_socket.setblocking(False)
+        src_socket.setblocking(True)
         data = src_socket.recv(self.sz_buf)
 
         if len(data):
@@ -302,7 +302,7 @@ if __name__ == "__main__":
         print("Launching remote script...", file=sys.stderr)
         stdin, stdout, stderr = sshclient.exec_command("cd TorchStudio\n"+args.command+" -u -X utf8 -m "+' '.join([args.script]+other_args))
         while True:
-            time.sleep(.01)
+            time.sleep(.1)
             if stdout.channel.recv_ready():
                 sys.stdout.write(str(stdout.channel.recv(1024),'utf-8'))
             if stdout.channel.recv_stderr_ready():

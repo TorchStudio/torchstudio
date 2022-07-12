@@ -22,7 +22,7 @@ class Recall(Metric):
             if self.normalize:
                 preds=F.softmax(preds, dim=1)
             tp = torch.sum(torch.eq(torch.argmax(preds, dim=1), target).view(-1))
-            tpfn = tp.shape[0]
+            tpfn = torch.tensor(tp.shape[0])
         elif preds.shape==target.shape:
             if self.normalize:
                 preds=F.sigmoid(preds)
@@ -34,7 +34,7 @@ class Recall(Metric):
         self.tpfn += tpfn
         self.tp += tp
     def compute(self):
-        return self.tp / self.tpfn
+        return self.tp.float() / self.tpfn.float()
 
     def reset(self):
         self.tpfn = 0

@@ -11,6 +11,7 @@ import sys
 import io
 import tempfile
 from tqdm.auto import tqdm
+from collections.abc import Iterable
 
 
 class CachedDataset(Dataset):
@@ -44,6 +45,16 @@ class CachedDataset(Dataset):
             sample=self.index[id]
         return sample
 
+def deepcopy_cpu(value):
+    if isinstance(value, torch.Tensor):
+        value = value.to("cpu")
+        return value
+    elif isinstance(value, dict):
+        return {k: deepcopy_cpu(v) for k, v in value.items()}
+    elif isinstance(value, Iterable):
+        return type(value)(deepcopy_cpu(v) for v in value)
+    else:
+        return value
 
 modules_valid=True
 
@@ -65,19 +76,23 @@ while True:
         pin_memory = True if 'cuda' in device_id else False
 
     if msg_type == 'SetTorchScriptModel' and modules_valid:
-        print("Setting torchscript model...\n", file=sys.stderr)
-        buffer=io.BytesIO(msg_data)
-        model = torch.jit.load(buffer, map_location=device)
+        if msg_data:
+            print("Setting torchscript model...\n", file=sys.stderr)
+            buffer=io.BytesIO(msg_data)
+            model = torch.jit.load(buffer)
 
     if msg_type == 'SetPackageModel' and modules_valid:
-        print("Setting package model...\n", file=sys.stderr)
-        buffer=io.BytesIO(msg_data)
-        model = torch.package.PackageImporter(buffer).load_pickle('model', 'model.pkl', map_location=device)
+        if msg_data:
+            print("Setting package model...\n", file=sys.stderr)
+            buffer=io.BytesIO(msg_data)
+            model = torch.package.PackageImporter(buffer).load_pickle('model', 'model.pkl')
 
     if msg_type == 'SetModelState' and modules_valid:
         if model is not None:
-            buffer=io.BytesIO(msg_data)
-            model.load_state_dict(torch.load(buffer,map_location=device))
+            if msg_data:
+                buffer=io.BytesIO(msg_data)
+                model.load_state_dict(torch.load(buffer))
+            model.to(device)
 
     if msg_type == 'SetLossCodes' and modules_valid:
         print("Setting loss code...\n", file=sys.stderr)
@@ -116,9 +131,11 @@ while True:
             tc.send_msg(app_socket, 'TrainingError')
         else:
             optimizer = optimizer_env['optimizer']
+
     if msg_type == 'SetOptimizerState' and modules_valid:
-        buffer=io.BytesIO(msg_data)
-        optimizer.load_state_dict(torch.load(buffer,map_location=device))
+        if msg_data:
+            buffer=io.BytesIO(msg_data)
+            optimizer.load_state_dict(torch.load(buffer))
 
     if msg_type == 'SetSchedulerCode' and modules_valid:
         print("Setting scheduler code...\n", file=sys.stderr)
@@ -131,9 +148,11 @@ while True:
             scheduler = scheduler_env['scheduler']
 
     if msg_type == 'SetHyperParametersValues' and modules_valid: #set other hyperparameters values
-        batch_size, shuffle, epochs, early_stop = tc.decode_ints(msg_data)
-        early_stop=True if early_stop==1 else False
+        batch_size, shuffle, epochs, early_stop, monitor_metric, restore_best = tc.decode_ints(msg_data)
         shuffle=True if shuffle==1 else False
+        early_stop=True if early_stop==1 else False
+        monitor_metric=True if monitor_metric==1 else False
+        restore_best=True if restore_best==1 else False
 
     if msg_type == 'StartTrainingServer' and modules_valid:
         print("Caching...\n", file=sys.stderr)
@@ -267,11 +286,11 @@ while True:
         tc.send_msg(app_socket, 'ValidationMetric', tc.encode_floats(valid_metrics))
 
         buffer=io.BytesIO()
-        torch.save(model.state_dict(), buffer)
+        torch.save(deepcopy_cpu(model.state_dict()), buffer)
         tc.send_msg(app_socket, 'ModelState', buffer.getvalue())
 
         buffer=io.BytesIO()
-        torch.save(optimizer.state_dict(), buffer)
+        torch.save(deepcopy_cpu(optimizer.state_dict()), buffer)
         tc.send_msg(app_socket, 'OptimizerState', buffer.getvalue())
 
         tc.send_msg(app_socket, 'Trained')
@@ -280,7 +299,7 @@ while True:
         if train_bar is not None:
             train_bar.bar_format='{desc} epoch {n_fmt} | {remaining} left |{rate_fmt}\n\n'
         else:
-            train_bar = tqdm(total=epochs, desc='Training...', bar_format='{desc} epoch '+str(scheduler.last_epoch)+'\n\n')
+            train_bar = tqdm(total=epochs, desc='Training...', bar_format='{desc} epoch '+str(scheduler.last_epoch)+'\n\n', initial=scheduler.last_epoch-1)
         train_bar.update(1)
 
     if msg_type == 'StopTraining' and modules_valid:

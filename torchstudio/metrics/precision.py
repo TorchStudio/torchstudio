@@ -22,7 +22,7 @@ class Precision(Metric):
             if self.normalize:
                 preds=F.softmax(preds, dim=1)
             tp = torch.sum(torch.eq(torch.argmax(preds, dim=1), target).view(-1))
-            tpfp = tp.shape[0]
+            tpfp = torch.tensor(tp.shape[0])
         elif preds.shape==target.shape:
             if self.normalize:
                 preds=F.sigmoid(preds)
@@ -34,7 +34,7 @@ class Precision(Metric):
         self.tpfp += tpfp
         self.tp += tp
     def compute(self):
-        return self.tp / self.tpfp
+        return self.tp.float() / self.tpfp.float()
 
     def reset(self):
         self.tpfp = 0

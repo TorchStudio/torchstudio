@@ -29,13 +29,17 @@ def gather_parameters(node):
         elif inspect.isclass(param.default) or inspect.isfunction(param.default):
             params.append(param.default.__module__+'.'+param.default.__name__)
         else:
-            params.append(repr(param.default))
+            value=repr(param.default)
+            if "<class '" in value:
+                value=value.replace("<class '","")
+                value=value.replace("'>","")
+            params.append(value)
     return params
 
 def gather_objects(module):
     objects=[]
     for name, obj in inspect.getmembers(module):
-        if (inspect.isclass(obj) or inspect.isfunction(obj)) and not hasattr(obj, '_fields') and obj.__module__.find('.utils')==-1: #filter unwanted torch objects
+        if ((inspect.isclass(obj) and hasattr(obj, '__mro__') and ("torch.nn.modules.module.Module" in str(obj.__mro__) or "torch.utils.data.dataset.Dataset" in str(obj.__mro__))) or inspect.isfunction(obj)): #filter unwanted torch objects
             object={}
             object['type']='class' if inspect.isclass(obj) else 'function'
             object['name']=name
@@ -357,6 +361,8 @@ while True:
                     for i in range(len(objects_batch)):
                         objects_batch[i]['code']=code #set whole source code for each object, as we don't know the dependencies
                     objects.extend(objects_batch)
+                else:
+                    print("Error parsing code:", error_msg, "\n", file=sys.stderr)
         else:
             #parse module
             error_msg, module = safe_exec(importlib.import_module,(path,))
@@ -364,6 +370,8 @@ while True:
                 objects=gather_objects(module)
                 for i, object in enumerate(objects):
                     objects[i]['code']=generate_code(path,object) #generate inherited source code
+            else:
+                print("Error parsing module:", error_msg, "\n", file=sys.stderr)
 
         tc.send_msg(app_socket, 'ObjectsBegin', tc.encode_strings(path))
         for object in objects:

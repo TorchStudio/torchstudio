@@ -27,12 +27,12 @@ class Accuracy(Metric):
             raise ValueError("prediction and target have different shapes or aren't compatible with multiclass prediction")
 
         self.num_correct += torch.sum(correct)
-        self.num_samples += correct.shape[0]
+        self.num_samples += torch.tensor(correct.shape[0])
 
     def compute(self):
         if self.num_samples == 0:
             raise ValueError("Accuracy must have at least one sample before it can be computed.")
-        return self.num_correct / self.num_samples
+        return self.num_correct.float() / self.num_samples.float()
 
     def reset(self):
         self.num_correct = 0

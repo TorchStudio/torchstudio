@@ -25,8 +25,8 @@ class FScore(Metric):
             if self.normalize:
                 preds=F.softmax(preds, dim=1)
             tp = torch.sum(torch.eq(torch.argmax(preds, dim=1), target).view(-1))
-            tpfp = tp.shape[0]
-            tpfn = tp.shape[0]
+            tpfp = torch.tensor(tp.shape[0])
+            tpfn = torch.tensor(tp.shape[0])
         elif preds.shape==target.shape:
             if self.normalize:
                 preds=F.sigmoid(preds)
@@ -40,8 +40,8 @@ class FScore(Metric):
         self.tpfp += tpfp
         self.tp += tp
     def compute(self):
-        precision = self.tp / self.tpfp
-        recall = self.tp / self.tpfn
+        precision = self.tp.float() / self.tpfp.float()
+        recall = self.tp.float() / self.tpfn.float()
         fscore = (1.0+self.beta_square)*(precision*recall)/(self.beta_square*precision+recall)
         return fscore
 
