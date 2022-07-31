@@ -1,3 +1,7 @@
+#workaround until Pytorch 1.12.1 is released: https://github.com/pytorch/pytorch/issues/78490
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
 import importlib
 import inspect, sys
 import ast
@@ -39,12 +43,32 @@ def gather_parameters(node):
 def gather_objects(module):
     objects=[]
     for name, obj in inspect.getmembers(module):
+#        print("INSPECTING ", name)
         if ((inspect.isclass(obj) and hasattr(obj, '__mro__') and ("torch.nn.modules.module.Module" in str(obj.__mro__) or "torch.utils.data.dataset.Dataset" in str(obj.__mro__))) or inspect.isfunction(obj)): #filter unwanted torch objects
             object={}
             object['type']='class' if inspect.isclass(obj) else 'function'
             object['name']=name
             if obj.__doc__ is not None:
                 object['doc']=inspect.cleandoc(obj.__doc__)
+
+                # autofill class members when requested
+                doc=object['doc']
+                newstring = ''
+                start = 0
+                for m in re.finditer(".. autoclass:: [a-zA-Z0-9_.]+\n    :members:", doc):
+                    end, newstart = m.span()
+                    newstring += doc[start:end]
+                    class_name = re.findall(".. autoclass:: ([a-zA-Z0-9_.]+)\n    :members:", m.group(0))
+                    rep = class_name[0]+":\n"
+                    sub_error_message, submodule = safe_exec(importlib.import_module,(class_name[0].rpartition('.')[0],))
+                    if submodule is not None:
+                        for member in dir(vars(submodule)[class_name[0].rpartition('.')[-1]]):
+                            if not member.startswith('_'):
+                                rep+='    '+member+'\n'
+                    newstring += rep
+                    start = newstart
+                newstring += doc[start:]
+                object['doc']=newstring.replace("    :noindex:","")
             else:
                 object['doc']=name+(' class' if inspect.isclass(obj) else ' function')
             if hasattr(obj,'__getitem__') and obj.__getitem__.__doc__ is not None:

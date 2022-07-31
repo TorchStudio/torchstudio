@@ -1,3 +1,7 @@
+#workaround until Pytorch 1.12.1 is released: https://github.com/pytorch/pytorch/issues/78490
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
 import sys
 
 print("Checking Python version...\n", file=sys.stderr)

@@ -243,8 +243,9 @@ if __name__ == "__main__":
     parser.add_argument("--username", help="ssh server username", type=str, default=None)
     parser.add_argument("--password", help="ssh server password", type=str, default=None)
     parser.add_argument("--keyfile", help="ssh server key file", type=str, default=None)
-    parser.add_argument("--command", help="command to run python scripts", type=str, default="python")
-    parser.add_argument("--script", help="script to be launched on the server", type=str, default=None)
+    parser.add_argument('--clean', help="clean all files", action='store_true', default=False)
+    parser.add_argument("--command", help="command to execute or run python scripts", type=str, default=None)
+    parser.add_argument("--script", help="python script to be launched on the server", type=str, default=None)
     parser.add_argument("--address", help="address to which the script must connect", type=str, default=None)
     parser.add_argument("--port", help="port to which the script must connect", type=int, default=None)
     args, other_args = parser.parse_known_args()
@@ -257,14 +258,24 @@ if __name__ == "__main__":
         sshclient.connect(hostname=args.sshaddress, port=args.sshport, username=args.username, password=args.password, pkey=paramiko.RSAKey.from_private_key_file(args.keyfile) if args.keyfile else None, timeout=5)
     except:
         print("Error: could not connect to remote server", file=sys.stderr)
-        exit()
+        exit(1)
+
+    if args.clean:
+        print("Cleaning...", file=sys.stderr)
+        stdin, stdout, stderr = sshclient.exec_command('rm -r -f TorchStudio')
+        exit_status = stdout.channel.recv_exit_status()
+        stdin, stdout, stderr = sshclient.exec_command('rmdir /s /q TorchStudio')
+        exit_status = stdout.channel.recv_exit_status()
+        sshclient.close()
+        print("Cleaning complete")
+        exit(0)
 
     #copy root scripts to the remote server if necessary
     print("Updating remote scripts...", file=sys.stderr)
     local_scripts_hash = hashlib.md5()
-    for filename in os.listdir('torchstudio'):
-        if filename.endswith('.py'):
-            with open('torchstudio/'+filename, 'rb') as f:
+    for entry in os.scandir('torchstudio'):
+        if entry.is_file():
+            with open('torchstudio/'+entry.name, 'rb') as f:
                 local_scripts_hash.update(f.read())
     local_scripts_hash = local_scripts_hash.digest()
     sftp = paramiko.SFTPClient.from_transport(sshclient.get_transport())
@@ -282,9 +293,15 @@ if __name__ == "__main__":
             sftp.mkdir('TorchStudio/torchstudio')
         except:
             pass
-        for filename in os.listdir('torchstudio'):
-            if filename.endswith('.py'):
-                sftp.put('torchstudio/'+filename, 'TorchStudio/torchstudio/'+filename)
+        try:
+            for entry in os.scandir('torchstudio'):
+                if entry.is_file():
+                    sftp.put('torchstudio/'+entry.name, 'TorchStudio/torchstudio/'+entry.name)
+                    if entry.name.endswith('.cmd'):
+                        sftp.chmod('TorchStudio/torchstudio/'+entry.name, 0o0777)
+        except:
+            print("Error: could not update remote scripts", file=sys.stderr)
+            exit(1)
         new_scripts_hash=io.BytesIO(local_scripts_hash)
         sftp.putfo(new_scripts_hash, 'TorchStudio/torchstudio/.md5')
     sftp.close()
@@ -298,9 +315,13 @@ if __name__ == "__main__":
         reverse_tunnel = Tunnel(sshclient, ReverseTunnel, 'localhost', 0, args.address if args.address else 'localhost', args.port) #remote address, remote port, local address, local port
         other_args=["--port", str(reverse_tunnel.lport)]+other_args
 
-    if args.script:
-        print("Launching remote script...", file=sys.stderr)
-        stdin, stdout, stderr = sshclient.exec_command("cd TorchStudio\n"+args.command+" -u -X utf8 -m "+' '.join([args.script]+other_args))
+    if args.command:
+        if args.script:
+            print("Launching remote script...", file=sys.stderr)
+            stdin, stdout, stderr = sshclient.exec_command("cd TorchStudio&&"+args.command+" -u -X utf8 -m "+' '.join([args.script]+other_args))
+        else:
+            print("Executing remote command...", file=sys.stderr)
+            stdin, stdout, stderr = sshclient.exec_command("cd TorchStudio&&"+' '.join([args.command]+other_args))
         while True:
             time.sleep(.1)
             if stdout.channel.recv_ready():
@@ -309,6 +330,8 @@ if __name__ == "__main__":
                 sys.stderr.write(str(stdout.channel.recv_stderr(1024),'utf-8'))
             if stdout.channel.exit_status_ready():
                 break
+    else:
+        print("Error: no python command set. Define a command or refresh to install a python environment.", file=sys.stderr)
 
     sshclient.close()
 
