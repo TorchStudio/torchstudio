@@ -324,14 +324,17 @@ if __name__ == "__main__":
             stdin, stdout, stderr = sshclient.exec_command("cd TorchStudio&&"+' '.join([args.command]+other_args))
         while True:
             time.sleep(.1)
-            if stdout.channel.recv_ready():
-                sys.stdout.write(str(stdout.channel.recv(1024),'utf-8'))
             if stdout.channel.recv_stderr_ready():
-                sys.stderr.write(str(stdout.channel.recv_stderr(1024),'utf-8'))
+                sys.stderr.write(str(stdout.channel.recv_stderr(1024).replace(b'\r\n',b'\n'),'utf-8'))
+            if stdout.channel.recv_ready():
+                sys.stdout.write(str(stdout.channel.recv(1024).replace(b'\r\n',b'\n'),'utf-8'))
             if stdout.channel.exit_status_ready():
                 break
     else:
-        print("Error: no python command set. Define a command or refresh to install a python environment.", file=sys.stderr)
+        if args.script:
+            print("Error: no python environment set.", file=sys.stderr)
+        else:
+            print("Error: no command set.", file=sys.stderr)
 
     sshclient.close()
 

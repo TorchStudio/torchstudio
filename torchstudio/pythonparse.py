@@ -43,8 +43,7 @@ def gather_parameters(node):
 def gather_objects(module):
     objects=[]
     for name, obj in inspect.getmembers(module):
-#        print("INSPECTING ", name)
-        if ((inspect.isclass(obj) and hasattr(obj, '__mro__') and ("torch.nn.modules.module.Module" in str(obj.__mro__) or "torch.utils.data.dataset.Dataset" in str(obj.__mro__))) or inspect.isfunction(obj)): #filter unwanted torch objects
+        if (inspect.isclass(obj) and hasattr(obj, '__mro__') and ("torch.nn.modules.module.Module" in str(obj.__mro__) or "torch.utils.data.dataset.Dataset" in str(obj.__mro__))) or (inspect.isfunction(obj) and "return" in obj.__annotations__ and inspect.isclass(obj.__annotations__["return"]) and "torch.nn.modules.module.Module" in str(obj.__annotations__["return"].__mro__)): #filter unwanted torch objects
             object={}
             object['type']='class' if inspect.isclass(obj) else 'function'
             object['name']=name

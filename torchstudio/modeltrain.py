@@ -152,10 +152,9 @@ while True:
             scheduler = scheduler_env['scheduler']
 
     if msg_type == 'SetHyperParametersValues' and modules_valid: #set other hyperparameters values
-        batch_size, shuffle, epochs, early_stop, monitor_metric, restore_best = tc.decode_ints(msg_data)
+        batch_size, shuffle, epochs, early_stop, restore_best = tc.decode_ints(msg_data)
         shuffle=True if shuffle==1 else False
         early_stop=True if early_stop==1 else False
-        monitor_metric=True if monitor_metric==1 else False
         restore_best=True if restore_best==1 else False
 
     if msg_type == 'StartTrainingServer' and modules_valid:
@@ -301,7 +300,7 @@ while True:
 
         #create train_bar only after first successful training to avoid ghost progress message after an error
         if train_bar is not None:
-            train_bar.bar_format='{desc} epoch {n_fmt} | {remaining} left |{rate_fmt}\n\n'
+            train_bar.bar_format='{desc} epoch {n_fmt} |{rate_fmt}\n\n'
         else:
             train_bar = tqdm(total=epochs, desc='Training...', bar_format='{desc} epoch '+str(scheduler.last_epoch)+'\n\n', initial=scheduler.last_epoch-1)
         train_bar.update(1)
@@ -324,6 +323,11 @@ while True:
                 output_tensors=model(*input_tensors)
                 output_tensors=[output.cpu() for output in output_tensors]
                 tc.send_msg(app_socket, 'InferedTensors', tc.encode_torch_tensors(output_tensors))
+
+    if msg_type == 'SaveWeights':
+        path = tc.decode_strings(msg_data)[0]
+        torch.save(deepcopy_cpu(model.state_dict()), path)
+        print("Export complete")
 
     if msg_type == 'SaveTorchScript':
         path, mode = tc.decode_strings(msg_data)

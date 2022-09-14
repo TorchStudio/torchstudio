@@ -68,7 +68,7 @@ def plot_metrics(prefix, size, dpi, samples=100, labels=[],
     if labels and loss and loss[0]:
         ax1.legend(bbox_to_anchor=(1, 1), loc='upper right', ncol=1, prop={'size': 8})
     ax1.grid(color = '#303030')
-    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax1.xaxis.set_major_locator(MaxNLocator(nbins='auto', integer=True))
     ax1.ticklabel_format(axis="y", style="sci", scilimits=(0,0))
 
     #METRIC
@@ -110,7 +110,7 @@ def plot_metrics(prefix, size, dpi, samples=100, labels=[],
     for i in range(len(metric)):
         ax2.plot(metric[i],color=metric_colors[i%len(metric_colors)])
     ax2.grid(color = '#303030')
-    ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax2.xaxis.set_major_locator(MaxNLocator(nbins='auto', integer=True))
 
     plt.tight_layout(pad=0)
 
