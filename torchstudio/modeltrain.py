@@ -79,6 +79,10 @@ while True:
         device = torch.device(device_id)
         pin_memory = True if 'cuda' in device_id else False
 
+    if msg_type == 'SetMode':
+        print("Setting mode...\n", file=sys.stderr)
+        mode=tc.decode_strings(msg_data)[0]
+
     if msg_type == 'SetTorchScriptModel' and modules_valid:
         if msg_data:
             print("Setting torchscript model...\n", file=sys.stderr)
@@ -224,9 +228,19 @@ while True:
         valid_loader = torch.utils.data.DataLoader(valid_dataset,batch_size=batch_size, shuffle=False, pin_memory=pin_memory)
 
     if msg_type == 'StartTraining' and modules_valid:
+        scaler = None
+        if 'cuda' in device_id:
+            #https://pytorch.org/docs/stable/notes/cuda.html
+            torch.backends.cuda.matmul.allow_tf32 = True if mode=='TF32' else False
+            torch.backends.cudnn.allow_tf32 = True
+            if mode=='FP16':
+                scaler = torch.cuda.amp.GradScaler()
+            if mode=='BF16':
+                os.environ["TORCH_CUDNN_V8_API_ENABLED"] = "1" #https://discuss.pytorch.org/t/bfloat16-has-worse-performance-than-float16-for-conv2d/154373
         print("Training... epoch "+str(scheduler.last_epoch)+"\n", file=sys.stderr)
 
     if msg_type == 'TrainOneEpoch' and modules_valid:
+
         #training
         model.train()
         train_loss = 0
@@ -237,13 +251,23 @@ while True:
             inputs = [tensors[i].to(device) for i in input_tensors_id]
             targets = [tensors[i].to(device) for i in output_tensors_id]
             optimizer.zero_grad()
-            outputs = model(*inputs)
-            outputs = outputs if type(outputs) is not torch.Tensor else [outputs]
-            loss = 0
-            for output, target, criterion in zip(outputs, targets, criteria): #https://discuss.pytorch.org/t/a-model-with-multiple-outputs/10440
-                loss = loss + criterion(output, target)
-            loss.backward()
-            optimizer.step()
+
+            with torch.autocast(device_type='cuda' if 'cuda' in device_id else 'cpu', dtype=torch.bfloat16 if mode=='BF16' else torch.float16, enabled=True if '16' in mode else False):
+                outputs = model(*inputs)
+                outputs = outputs if type(outputs) is not torch.Tensor else [outputs]
+                loss = 0
+                for output, target, criterion in zip(outputs, targets, criteria): #https://discuss.pytorch.org/t/a-model-with-multiple-outputs/10440
+                    loss = loss + criterion(output, target)
+
+            if scaler:
+                # Accumulates scaled gradients.
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss.backward()
+                optimizer.step()
+
             train_loss += loss.item() * inputs[0].size(0)
 
             with torch.set_grad_enabled(False):

@@ -4,7 +4,10 @@ import os
 import io
 
 # Port forwarding from https://github.com/skyleronken/sshrat/blob/master/tunnels.py
-# improved with dynamic local port allocation feedback for reverse tunnel with a null local port
+# improved with:
+# dynamic local port allocation feedback for reverse tunnel with a null local port
+# blocking connections to avoid connection lost with poor cloud servers
+# more explicit error messages
 import threading
 import socket
 import selectors
@@ -322,14 +325,15 @@ if __name__ == "__main__":
         else:
             print("Executing remote command...", file=sys.stderr)
             stdin, stdout, stderr = sshclient.exec_command("cd TorchStudio&&"+' '.join([args.command]+other_args))
-        while True:
-            time.sleep(.1)
+
+        while not stdout.channel.exit_status_ready():
+            time.sleep(.01) #lower CPU usage
             if stdout.channel.recv_stderr_ready():
-                sys.stderr.write(str(stdout.channel.recv_stderr(1024).replace(b'\r\n',b'\n'),'utf-8'))
+                sys.stderr.buffer.write(stdout.channel.recv_stderr(1024).replace(b'\r\n',b'\n'))
+                time.sleep(.01) #for stdout/stderr sync
             if stdout.channel.recv_ready():
-                sys.stdout.write(str(stdout.channel.recv(1024).replace(b'\r\n',b'\n'),'utf-8'))
-            if stdout.channel.exit_status_ready():
-                break
+                sys.stdout.buffer.write(stdout.channel.recv(1024).replace(b'\r\n',b'\n'))
+                time.sleep(.01) #for stdout/stderr sync
     else:
         if args.script:
             print("Error: no python environment set.", file=sys.stderr)

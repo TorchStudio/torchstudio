@@ -15,11 +15,11 @@ parser.add_argument("--remote", help="check environment on a remote server and i
 args, unknown = parser.parse_known_args()
 
 #check python version first
-python_version=(sys.version_info.major,sys.version_info.minor)
-min_python_version=(3,7) if args.remote else (3,8) #3.7 required for ordered dicts and stdout/stderr utf8 encoding, 3.8 required for python parsing
+python_version=(sys.version_info.major,sys.version_info.minor,sys.version_info.micro)
+min_python_version=(3,7,0) if args.remote else (3,8,0) #3.7 required for ordered dicts and stdout/stderr utf8 encoding, 3.8 required for python parsing
 if python_version<min_python_version:
-    print("Error: Python "+str(min_python_version[0])+"."+str(min_python_version[1])+" minimum is required.", file=sys.stderr)
-    print("This environment has Python "+str(python_version[0])+"."+str(python_version[1])+".", file=sys.stderr)
+    print("Error: Python "+'.'.join((str(i) for i in min_python_version))+" minimum is required.", file=sys.stderr)
+    print("This environment has Python "+'.'.join((str(i) for i in python_version))+".", file=sys.stderr)
     exit(1)
 
 print("Checking required packages...\n", file=sys.stderr)
@@ -36,15 +36,15 @@ for module_check in checked_modules:
     if module is None:
         missing_modules.append(module_check)
     elif module_check=='torch':
-        if python_version<(3,8):
+        if python_version<(3,8,0):
             from importlib_metadata import version
         else:
             from importlib.metadata import version
-        pytorch_version=tuple(int(i) for i in version('torch').split('.')[:2])
-        min_pytorch_version=(1,9) #1.9 required for torch.package support, 1.10 preferred for stable torch.fx and profile-directed typing in torchscript
+        pytorch_version=tuple(int(i) if i.isdigit() else 0 for i in version('torch').split('.')[:3])
+        min_pytorch_version=(1,9,0) #1.9 required for torch.package support, 1.10 preferred for stable torch.fx and profile-directed typing in torchscript
         if pytorch_version<min_pytorch_version:
-            print("Error: PyTorch "+str(min_pytorch_version[0])+"."+str(min_pytorch_version[1])+" minimum is required.", file=sys.stderr)
-            print("This environment has PyTorch "+str(pytorch_version[0])+"."+str(pytorch_version[1])+".", file=sys.stderr)
+            print("Error: PyTorch "+'.'.join((str(i) for i in min_pytorch_version))+" minimum is required.", file=sys.stderr)
+            print("This environment has PyTorch "+'.'.join((str(i) for i in pytorch_version))+".", file=sys.stderr)
             exit(1)
 
 if len(missing_modules)>0:
@@ -72,24 +72,32 @@ else:
 
     #finally, list available devices
     print("Loading PyTorch...\n", file=sys.stderr)
-
     import torch
 
     print("Listing devices...\n", file=sys.stderr)
-
     devices = {}
-    devices['cpu'] = {'name': 'CPU', 'pin_memory': False}
+    devices['cpu'] = {'name': 'CPU', 'pin_memory': False, 'modes': ['FP32']}
     for i in range(torch.cuda.device_count()):
-        devices['cuda:'+str(i)] = {'name': torch.cuda.get_device_name(i), 'pin_memory': True}
-    if pytorch_version>=(1,12):
+        modes = ['FP32']
+        #same as torch.cuda.is_bf16_supported() but compatible with PyTorch<1.10, and not limited to current cuda device only
+        cu_vers = torch.version.cuda
+        if cu_vers is not None:
+            cuda_maj_decide = int(cu_vers.split('.')[0]) >= 11
+        else:
+            cuda_maj_decide = False
+        compute_capability=torch.cuda.get_device_properties(torch.cuda.device(i)).major #https://developer.nvidia.com/cuda-gpus
+        if compute_capability>=8 and cuda_maj_decide: #RTX 3000 and higher
+            modes+=['TF32','FP16','BF16']
+        if compute_capability==7: #RTX 2000
+            modes+=['FP16']
+        devices['cuda:'+str(i)] = {'name': torch.cuda.get_device_name(i), 'pin_memory': True, 'modes': modes}
+    if pytorch_version>=(1,12,0):
         if torch.backends.mps.is_available():
-            devices['mps'] = {'name': 'Metal Acceleration', 'pin_memory': False}
+            devices['mps'] = {'name': 'Metal', 'pin_memory': False, 'modes': ['FP32']}
     #other possible devices:
     #'hpu' (https://docs.habana.ai/en/latest/PyTorch_User_Guide/PyTorch_User_Guide.html)
     #'dml' (https://docs.microsoft.com/en-us/windows/ai/directml/gpu-pytorch-windows)
     devices_string_list=[]
     for id in devices:
-        devices_string_list.append(devices[id]['name']+" ("+id+")")
-    print(("Online and functional " if args.remote else "Functional ")+"("+platform.platform()+", Python "+str(python_version[0])+"."+str(python_version[1])+", PyTorch "+str(pytorch_version[0])+"."+str(pytorch_version[1])+", Devices: "+", ".join(devices_string_list)+")");
-
-
+        devices_string_list.append(id+' "'+devices[id]['name']+'" ('+'/'.join(devices[id]['modes'])+')')
+    print("Ready ("+platform.platform()+", Python "+'.'.join((str(i) for i in python_version))+", PyTorch "+'.'.join((str(i) for i in pytorch_version))+", Devices: "+", ".join(devices_string_list)+")");

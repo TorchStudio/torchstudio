@@ -15,9 +15,9 @@ def start_server(server):
     conn, addr = server.accept()
     return conn
 
-def connect(server_address=None):
+def connect(server_address=None, timeout=0):
     if server_address==None and len(sys.argv)<3:
-        print("Missing socket address and port")
+        print("Missing socket address and port", file=sys.stderr)
         exit()
 
     if not server_address:
@@ -25,8 +25,10 @@ def connect(server_address=None):
         parser = argparse.ArgumentParser()
         parser.add_argument("--address", help="server address", type=str, default='localhost')
         parser.add_argument("--port", help="local port to which the script must connect", type=int, default=0)
+        parser.add_argument("--timeout", help="max number of seconds without incoming messages before quitting", type=int, default=0)
         args, unknown = parser.parse_known_args()
         server_address = (args.address, args.port)
+        timeout=args.timeout
     else:
         server_address = (server_address[0], int(server_address[1]))
 
@@ -34,22 +36,34 @@ def connect(server_address=None):
     try:
         sock.connect(server_address)
     except socket.error as serr:
-        print("Connection error: %s" % str(serr))
+        print("Connection error: %s" % str(serr), file=sys.stderr)
         exit()
-
+    if timeout>0:
+        sock.settimeout(timeout)
     return sock
 
 def send_msg(sock, type, data = bytearray()):
     type_bytes=bytes(type, 'utf-8')
     type_size=len(type_bytes)
     msg = struct.pack(f'<B{type_size}sI', type_size, type_bytes, len(data)) + data
-    sock.sendall(msg)
+    try:
+        sock.sendall(msg)
+    except:
+        print("Lost connection", file=sys.stderr)
+        exit()
 
 def recv_msg(sock):
     def recvall(sock, n):
         data = bytearray()
         while len(data) < n:
-            packet = sock.recv(n - len(data))
+            try:
+                packet = sock.recv(n - len(data))
+            except:
+                print("Lost connection", file=sys.stderr)
+                exit()
+            if len(packet)==0:
+                print("Lost connection", file=sys.stderr)
+                exit()
             data.extend(packet)
         return data
     type_size = struct.unpack('<B', recvall(sock, 1))[0]

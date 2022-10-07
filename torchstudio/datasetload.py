@@ -231,7 +231,7 @@ while True:
 
             sshclient = paramiko.SSHClient()
             sshclient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            sshclient.connect(hostname=sshaddress, port=int(sshport), username=username, password=password, pkey=pkey, timeout=5)
+            sshclient.connect(hostname=sshaddress, port=int(sshport), username=username, password=password, pkey=pkey, timeout=10)
             worker_socket = socket.socket()
             worker_socket.bind(('localhost', 0))
             freeport=worker_socket.getsockname()[1]
@@ -240,7 +240,7 @@ while True:
             port=freeport
 
         try:
-            worker_socket = tc.connect((address,port))
+            worker_socket = tc.connect((address,port),timeout=10)
             num_samples=(len(meta_dataset.train()) if train_set else 0) + (len(meta_dataset.valid()) if valid_set else 0)
             tc.send_msg(worker_socket, 'NumSamples', tc.encode_ints(num_samples))
             tc.send_msg(worker_socket, 'InputTensorsID', tc.encode_ints(input_tensors_id))
@@ -273,7 +273,7 @@ while True:
 
         if sshaddress and sshport and username:
             try:
-                forward_tunnel.stop()
+                del forward_tunnel
             except:
                 pass
             try:
