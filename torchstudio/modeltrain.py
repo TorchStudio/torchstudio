@@ -237,6 +237,11 @@ while True:
                 scaler = torch.cuda.amp.GradScaler()
             if mode=='BF16':
                 os.environ["TORCH_CUDNN_V8_API_ENABLED"] = "1" #https://discuss.pytorch.org/t/bfloat16-has-worse-performance-than-float16-for-conv2d/154373
+        train_type=None
+        if mode=='FP16':
+            train_type=torch.float16
+        if mode=='BF16':
+            train_type=torch.bfloat16
         print("Training... epoch "+str(scheduler.last_epoch)+"\n", file=sys.stderr)
 
     if msg_type == 'TrainOneEpoch' and modules_valid:
@@ -252,7 +257,7 @@ while True:
             targets = [tensors[i].to(device) for i in output_tensors_id]
             optimizer.zero_grad()
 
-            with torch.autocast(device_type='cuda' if 'cuda' in device_id else 'cpu', dtype=torch.bfloat16 if mode=='BF16' else torch.float16, enabled=True if '16' in mode else False):
+            with torch.autocast(device_type='cuda' if 'cuda' in device_id else 'cpu', dtype=train_type, enabled=True if train_type else False):
                 outputs = model(*inputs)
                 outputs = outputs if type(outputs) is not torch.Tensor else [outputs]
                 loss = 0

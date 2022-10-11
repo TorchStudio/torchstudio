@@ -10,7 +10,7 @@ class RandomGenerator(Dataset):
             Size of the dataset (number of samples)
         tensors:
             A list of tuples defining tensor properties: shape, type, range
-            All properties are optionals. Defaults are null, float, [0,1]
+            All properties are optionals. Defaults are null, torch.float, [0,1]
     """
 
     def __init__(self, size:int=256, tensors=[(3,64,64), (int,[0,9])]):
@@ -29,12 +29,12 @@ class RandomGenerator(Dataset):
         sample = []
         for properties in self.tensors:
             shape=[]
-            dtype=float
+            dtype=torch.float
             drange=[0,1]
             for property in properties:
                 if type(property)==int:
                     shape.append(property)
-                elif inspect.isclass(property):
+                elif type(property)==type or type(property)==torch.dtype:
                     dtype=property
                 elif type(property) is list:
                     drange=property
