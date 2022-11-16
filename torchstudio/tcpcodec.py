@@ -42,15 +42,25 @@ def connect(server_address=None, timeout=0):
         sock.settimeout(timeout)
     return sock
 
-def send_msg(sock, type, data = bytearray()):
-    type_bytes=bytes(type, 'utf-8')
+def send_msg(sock, data_type, data = bytearray()):
+    def sendall(sock, data):
+        while len(data) >0:
+            try:
+                ret = sock.send(data[:1048576]) #1MB chunks
+            except:
+                print("Lost connection (send timeout)", file=sys.stderr)
+                exit()
+            if ret == 0:
+                print("Lost connection (send null)", file=sys.stderr)
+                exit()
+            else:
+                data=data[ret:]
+
+    type_bytes=bytes(data_type, 'utf-8')
     type_size=len(type_bytes)
     msg = struct.pack(f'<B{type_size}sI', type_size, type_bytes, len(data)) + data
-    try:
-        sock.sendall(msg)
-    except:
-        print("Lost connection", file=sys.stderr)
-        exit()
+
+    sendall(sock, msg)
 
 def recv_msg(sock):
     def recvall(sock, n):
@@ -59,17 +69,17 @@ def recv_msg(sock):
             try:
                 packet = sock.recv(n - len(data))
             except:
-                print("Lost connection", file=sys.stderr)
+                print("Lost connection (receive timeout)", file=sys.stderr)
                 exit()
             if len(packet)==0:
-                print("Lost connection", file=sys.stderr)
+                print("Lost connection (receive null)", file=sys.stderr)
                 exit()
             data.extend(packet)
         return data
     type_size = struct.unpack('<B', recvall(sock, 1))[0]
-    type = struct.unpack(f'<{type_size}s', recvall(sock, type_size))[0]
+    data_type = struct.unpack(f'<{type_size}s', recvall(sock, type_size))[0]
     datalen = struct.unpack('<I', recvall(sock, 4))[0]
-    return str(type, 'utf-8'), recvall(sock, datalen)
+    return str(data_type, 'utf-8'), recvall(sock, datalen)
 
 
 

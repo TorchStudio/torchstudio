@@ -258,7 +258,7 @@ if __name__ == "__main__":
 
     print("Connecting to remote server...", file=sys.stderr)
     try:
-        sshclient.connect(hostname=args.sshaddress, port=args.sshport, username=args.username, password=args.password, pkey=paramiko.RSAKey.from_private_key_file(args.keyfile) if args.keyfile else None, timeout=5)
+        sshclient.connect(hostname=args.sshaddress, port=args.sshport, username=args.username, password=args.password, pkey=paramiko.RSAKey.from_private_key_file(args.keyfile) if args.keyfile else None, timeout=10)
     except:
         print("Error: could not connect to remote server", file=sys.stderr)
         exit(1)

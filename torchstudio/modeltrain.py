@@ -184,7 +184,7 @@ while True:
 
             sshclient = paramiko.SSHClient()
             sshclient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            sshclient.connect(hostname=sshaddress, port=int(sshport), username=username, password=password, pkey=pkey, timeout=5)
+            sshclient.connect(hostname=sshaddress, port=int(sshport), username=username, password=password, pkey=pkey, timeout=10)
 
             reverse_tunnel = sshtunnel.Tunnel(sshclient, sshtunnel.ReverseTunnel, 'localhost', 0, 'localhost', int(address[1]))
             address[1]=str(reverse_tunnel.lport)
@@ -319,6 +319,7 @@ while True:
 
         buffer=io.BytesIO()
         torch.save(deepcopy_cpu(model.state_dict()), buffer)
+        print("Training... epoch "+str(scheduler.last_epoch-1)+' | (save)\n\n', file=sys.stderr)
         tc.send_msg(app_socket, 'ModelState', buffer.getvalue())
 
         buffer=io.BytesIO()

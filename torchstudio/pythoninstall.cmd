@@ -227,7 +227,7 @@ if EXIST "%pythonpath%" (
     )
 )
 
-set PATH=%PATH%;%pythonpath%;%pythonpath%\Library\mingw-w64\bin;%pythonpath%\Library\bin
+set PATH=%PATH%;%pythonpath%;%pythonpath%\Library\mingw-w64\bin;%pythonpath%\Library\bin;%pythonpath%\bin
 "%pythonpath%\python" -u -B -X utf8 -m torchstudio.pythoninstall --channel %channel% %cuda% %packages%
 if ERRORLEVEL 1 (
     echo. 1>&2

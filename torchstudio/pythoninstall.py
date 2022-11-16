@@ -38,12 +38,12 @@ if not args.package:
             highest_cuda_string='.'.join([str(value) for value in highest_cuda_version])
             print("Using CUDA "+highest_cuda_string)
             print("")
-            conda_install+=" fastchan::cudatoolkit="+highest_cuda_string
+            conda_install+=f" {args.channel}::pytorch-cuda="+highest_cuda_string+" -c nvidia"
         else:
             conda_install+=f" {args.channel}::cpuonly"
     print(f"Downloading and installing {args.channel} packages...")
     print("")
-    conda_install+=" -k" #adding fastchan for cudatoolkit, faster than the conda-forge channel
+    conda_install+=" -k" #allow insecure ssl connections
     # https://stackoverflow.com/questions/41767340/using-conda-install-within-a-python-script
     (stdout_str, stderr_str, return_code_int) = Conda.run_command(Conda.Commands.INSTALL,conda_install.split(),use_exception_handler=True,stdout=sys.stdout,stderr=sys.stderr)
     if return_code_int!=0:
