@@ -16,6 +16,7 @@ import io
 import time
 from collections.abc import Iterable
 from tqdm.auto import tqdm
+import hashlib
 
 #monkey patch ssl to fix ssl certificate fail when downloading datasets on some configurations: https://stackoverflow.com/questions/27835619/urllib-and-ssl-certificate-verify-failed-error
 import ssl
@@ -207,9 +208,7 @@ while True:
     if msg_type == 'OutputTensorsID':
         output_tensors_id = tc.decode_ints(msg_data)
 
-    if msg_type == 'ConnectAndSendTrainingSamples' or msg_type == 'ConnectAndSendValidationSamples' or msg_type == 'ConnectAndSendAllSamples':
-        train_set=True if msg_type == 'ConnectAndSendTrainingSamples' or msg_type == 'ConnectAndSendAllSamples' else False
-        valid_set=True if msg_type == 'ConnectAndSendValidationSamples' or msg_type == 'ConnectAndSendAllSamples' else False
+    if msg_type == 'ConnectToWorkerServer':
         name, sshaddress, sshport, username, password, keydata, address, port = tc.decode_strings(msg_data)
         port=int(port)
 
@@ -241,30 +240,49 @@ while True:
 
         try:
             worker_socket = tc.connect((address,port),timeout=10)
-            num_samples=(len(meta_dataset.train()) if train_set else 0) + (len(meta_dataset.valid()) if valid_set else 0)
-            tc.send_msg(worker_socket, 'NumSamples', tc.encode_ints(num_samples))
-            tc.send_msg(worker_socket, 'InputTensorsID', tc.encode_ints(input_tensors_id))
-            tc.send_msg(worker_socket, 'OutputTensorsID', tc.encode_ints(output_tensors_id))
-            tc.send_msg(worker_socket, 'Labels', tc.encode_strings(meta_dataset.classes))
+            while True:
+                worker_msg_type, worker_msg_data = tc.recv_msg(worker_socket)
 
-            tc.send_msg(worker_socket, 'StartSending')
-            with tqdm(total=num_samples, desc='Sending samples to '+name+'...', bar_format='{l_bar}{bar}| {remaining} left\n\n') as pbar:
-                if train_set:
-                    meta_dataset.train()
-                    for i in range(len(meta_dataset)):
-                        tc.send_msg(worker_socket, 'TrainingSample', tc.encode_torch_tensors(meta_dataset[i]))
-                        pbar.update(1)
-                if valid_set:
-                    meta_dataset.valid()
-                    for i in range(len(meta_dataset)):
-                        tc.send_msg(worker_socket, 'ValidationSample', tc.encode_torch_tensors(meta_dataset[i]))
-                        pbar.update(1)
+                if worker_msg_type == 'RequestMetaInfos':
+                    tc.send_msg(worker_socket, 'InputTensorsID', tc.encode_ints(input_tensors_id))
+                    tc.send_msg(worker_socket, 'OutputTensorsID', tc.encode_ints(output_tensors_id))
+                    tc.send_msg(worker_socket, 'Labels', tc.encode_strings(meta_dataset.classes))
 
-            tc.send_msg(worker_socket, 'DoneSending')
-            train_msg_type, train_msg_data = tc.recv_msg(worker_socket)
-            if train_msg_type == 'DoneReceiving':
-                worker_socket.close()
-                print('Samples transfer to '+name+' completed')
+                if worker_msg_type == 'RequestHash':
+                    dataset_hash = hashlib.md5()
+                    dataset_hash.update(int(len(meta_dataset.train())).to_bytes(4, 'little'))
+                    if len(meta_dataset)>0:
+                        dataset_hash.update(tc.encode_torch_tensors(meta_dataset[0]))
+                    dataset_hash.update(int(len(meta_dataset.valid())).to_bytes(4, 'little'))
+                    if len(meta_dataset)>0:
+                        dataset_hash.update(tc.encode_torch_tensors(meta_dataset[0]))
+                    tc.send_msg(worker_socket, 'DatasetHash', dataset_hash.digest())
+
+                if worker_msg_type == 'RequestTrainingSamples' or worker_msg_type == 'RequestValidationSamples' or worker_msg_type == 'RequestAllSamples':
+                    train_set=True if worker_msg_type == 'RequestTrainingSamples' or worker_msg_type == 'RequestAllSamples' else False
+                    valid_set=True if worker_msg_type == 'RequestValidationSamples' or worker_msg_type == 'RequestAllSamples' else False
+                    num_samples=(len(meta_dataset.train()) if train_set else 0) + (len(meta_dataset.valid()) if valid_set else 0)
+                    tc.send_msg(worker_socket, 'NumSamples', tc.encode_ints(num_samples))
+
+                    tc.send_msg(worker_socket, 'StartSending')
+                    with tqdm(total=num_samples, desc='Sending samples to '+name+'...', bar_format='{l_bar}{bar}| {remaining} left\n\n') as pbar:
+                        if train_set:
+                            meta_dataset.train()
+                            for i in range(len(meta_dataset)):
+                                tc.send_msg(worker_socket, 'TrainingSample', tc.encode_torch_tensors(meta_dataset[i]))
+                                pbar.update(1)
+                        if valid_set:
+                            meta_dataset.valid()
+                            for i in range(len(meta_dataset)):
+                                tc.send_msg(worker_socket, 'ValidationSample', tc.encode_torch_tensors(meta_dataset[i]))
+                                pbar.update(1)
+
+                    tc.send_msg(worker_socket, 'DoneSending')
+
+                if worker_msg_type == 'DisconnectFromWorkerServer':
+                    worker_socket.close()
+                    print('Samples transfer to '+name+' completed')
+                    break
 
         except:
             if sshaddress and sshport and username:
@@ -277,7 +295,7 @@ while True:
             except:
                 pass
             try:
-                sshclient.close() #ssh connection must be closed only when all tcp socket data was received on the remote side, hence the DoneSending/DoneReceiving ping pong
+                sshclient.close() #ssh connection must be closed only when all tcp socket data was received on the remote side, hence the DoneSending/DisconnectFromWorkerServer ping pong
             except:
                 pass
 

@@ -43,24 +43,18 @@ def connect(server_address=None, timeout=0):
     return sock
 
 def send_msg(sock, data_type, data = bytearray()):
-    def sendall(sock, data):
-        while len(data) >0:
-            try:
-                ret = sock.send(data[:1048576]) #1MB chunks
-            except:
-                print("Lost connection (send timeout)", file=sys.stderr)
-                exit()
-            if ret == 0:
-                print("Lost connection (send null)", file=sys.stderr)
-                exit()
-            else:
-                data=data[ret:]
-
     type_bytes=bytes(data_type, 'utf-8')
     type_size=len(type_bytes)
-    msg = struct.pack(f'<B{type_size}sI', type_size, type_bytes, len(data)) + data
-
-    sendall(sock, msg)
+    msg = struct.pack(f'<B{type_size}sI', type_size, type_bytes, len(data))
+    try:
+        sock.sendall(msg)
+        pos=0
+        while pos<len(data):
+            sock.sendall(data[pos:pos+1048576]) #1MB chunks
+            pos+=1048576
+    except:
+        print("Lost connection (send timeout)", file=sys.stderr)
+        exit()
 
 def recv_msg(sock):
     def recvall(sock, n):
@@ -163,7 +157,7 @@ def decode_numpy_tensors(data):
         datasize=int(dtype[2])
         for dimension in shape:
             datasize*=dimension
-        tensors.append(np.ndarray(shape, dtype=dtype, buffer=data[4+size*4:]))
+        tensors.append(np.ndarray(shape, dtype=dtype, buffer=np.array(data[4+size*4:4+size*4+datasize]))) #copy to np.array first to avoid a warning: https://github.com/facebookresearch/SlowFast/issues/629
         data=data[4+size*4+datasize:]
     return tensors
 

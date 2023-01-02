@@ -30,7 +30,6 @@ done
 if [ ! -z "$uninstall" ]; then
     echo "Uninstalling python environment..."
     rm -f *.sh
-    rm -f *.tmp
     rm -f -r "$pythonpath"
     if [ $? != 0 ]; then
         echo "" 1>&2
@@ -61,20 +60,14 @@ fi
 echo ""
 if [[ $OSTYPE == "linux"* ]]; then
     file=Miniconda3-latest-Linux-x86_64.sh
-    rm -f "$file.tmp"
-    if [ -f "$file" ]; then
-        echo "Python installer ($file) already downloaded"
-    else
-        echo "Downloading Python installer ($file)..."
-        wget --show-progress --progress=bar:force:noscroll --no-check-certificate https://repo.anaconda.com/miniconda/$file -O "$file.tmp"
-        if [ $? != 0 ]; then
-            rm -f "$file.tmp"
-            echo "" 1>&2
-            echo "Error while downloading. Make sure port 80 is open." 1>&2
-            exit 1
-        else
-            mv "$file.tmp" "$file"
-        fi
+    rm -f "$file"
+    echo "Downloading Python installer ($file)..."
+    wget --show-progress --progress=bar:force:noscroll --no-check-certificate https://repo.anaconda.com/miniconda/$file -O "$file"
+    if [ $? != 0 ]; then
+        rm -f "$file"
+        echo "" 1>&2
+        echo "Error while downloading. Make sure port 80 is open." 1>&2
+        exit 1
     fi
 elif [[ $OSTYPE == "darwin"* ]]; then
     if [ "$(uname -m)" == "arm64" ]; then
@@ -82,42 +75,29 @@ elif [[ $OSTYPE == "darwin"* ]]; then
     else
         file=Miniconda3-latest-MacOSX-x86_64.sh
     fi
-    rm -f "$file.tmp"
-    if [ -f "$file" ]; then
-        echo "Python installer $file already downloaded"
-    else
-        echo "Downloading Python installer $file..."
-        curl --insecure https://repo.anaconda.com/miniconda/$file -o "$file.tmp"
-        if [ $? != 0 ]; then
-            rm -f "$file.tmp"
-            echo "" 1>&2
-            echo "Error while downloading. Make sure port 80 is open." 1>&2
-            exit 1
-        else
-            mv "$file.tmp" "$file"
-        fi
+    rm -f "$file"
+    echo "Downloading Python installer $file..."
+    curl --insecure https://repo.anaconda.com/miniconda/$file -o "$file"
+    if [ $? != 0 ]; then
+        rm -f "$file"
+        echo "" 1>&2
+        echo "Error while downloading. Make sure port 80 is open." 1>&2
+        exit 1
     fi
 fi
 
 echo ""
-if [ -f "python.tmp" ]; then
-    rm -f python.tmp
+rm -f -r "$pythonpath"
+echo "Installing Python in $pythonpath..."
+bash "$(pwd)/$file" -b -f -p "$pythonpath"
+if [ $? != 0 ]; then
+    rm -f "$file"
     rm -f -r "$pythonpath"
+    echo "" 1>&2
+    echo "Error while installing. Make sure you have write permissions." 1>&2
+    exit 1
 fi
-if [ -d "$pythonpath" ]; then
-    echo "Python already installed in $pythonpath"
-else
-    echo "Installing Python in $pythonpath..."
-    echo "" > python.tmp
-    bash "$(pwd)/$file" -b -f -p "$pythonpath"
-    rm -f python.tmp
-    if [ $? != 0 ]; then
-        rm -f -r "$pythonpath"
-        echo "" 1>&2
-        echo "Error while installing. Make sure you have write permissions." 1>&2
-        exit 1
-    fi
-fi
+rm -f "$file"
 
 PATH="$PATH;$pythonpath/bin"
 "$pythonpath/bin/python" -u -B -X utf8 -m torchstudio.pythoninstall --channel $channel $cuda $packages
@@ -169,7 +149,6 @@ goto args
 if DEFINED uninstall (
     echo Uninstalling python environment...
     del *.exe 2>nul
-    del *.tmp 2>nul
     rmdir /s /q "%pythonpath%" 2>nul
     if ERRORLEVEL 1 (
         echo. 1>&2
@@ -191,41 +170,28 @@ if DEFINED cuda (
 
 echo.
 set file=Miniconda3-latest-Windows-x86_64.exe
-del %file%.tmp 2>nul
-if EXIST "%file%" (
-    echo Python installer %file% already downloaded
-) else (
-    echo Downloading Python installer %file%...
-    curl --insecure https://repo.anaconda.com/miniconda/%file% -o %file%.tmp
-    if ERRORLEVEL 1 (
-        del %file%.tmp 2>nul
-        echo. 1>&2
-        echo Error while downloading. Make sure port 80 is open. 1>&2
-        exit /B 1
-    ) else (
-        ren %file%.tmp %file%
-    )
+del %file% 2>nul
+echo Downloading Python installer %file%...
+curl --insecure https://repo.anaconda.com/miniconda/%file% -o %file%
+if ERRORLEVEL 1 (
+    del %file% 2>nul
+    echo. 1>&2
+    echo Error while downloading. Make sure port 80 is open. 1>&2
+    exit /B 1
 )
 
 echo.
-if EXIST "python.tmp" (
-    del python.tmp 2>nul
+rmdir /s /q "%pythonpath%" 2>nul
+echo Installing Python in %pythonpath%...
+%file% /S /D=%pythonpath%
+if ERRORLEVEL 1 (
+    del %file% 2>nul
     rmdir /s /q "%pythonpath%" 2>nul
+    echo. 1>&2
+    echo Error while installing. Make sure you have write permissions. 1>&2
+    exit /B 1
 )
-if EXIST "%pythonpath%" (
-    echo Python already installed in %pythonpath%
-) else (
-    echo Installing Python in %pythonpath%...
-    echo. > python.tmp
-    %file% /S /D=%pythonpath%
-    del python.tmp 2>nul
-    if ERRORLEVEL 1 (
-        rmdir /s /q "%pythonpath%" 2>nul
-        echo. 1>&2
-        echo Error while installing. Make sure you have write permissions. 1>&2
-        exit /B 1
-    )
-)
+del %file% 2>nul
 
 set PATH=%PATH%;%pythonpath%;%pythonpath%\Library\mingw-w64\bin;%pythonpath%\Library\bin;%pythonpath%\bin
 "%pythonpath%\python" -u -B -X utf8 -m torchstudio.pythoninstall --channel %channel% %cuda% %packages%

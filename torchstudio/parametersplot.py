@@ -22,6 +22,7 @@ def sorted(l,reverse=False):
 #inspired by https://stackoverflow.com/questions/8230638/parallel-coordinates-plot-in-matplotlib
 def plot_parameters(size, dpi,
                 parameters=[], #parameters is a list of parameters
+                colors=[], #colors of models
                 values=[], #values is a list of list containing string values
                 order=[]): #sorting order for each parameter(1 or -1)
     """Parameters Plot
@@ -68,8 +69,13 @@ def plot_parameters(size, dpi,
         ax.xaxis.set_tick_params(width=0)
         ax.set_yticks([j/(len(param_values[i])-1) if len(param_values[i])>1 else .5 for j in range(len(param_values[i]))])
         ax.set_yticklabels(param_values[i])
-    #first parameter is the model name, keep the set_ticks
+    #first parameter is the model name, keep the set_ticks and color names
     axes[0].yaxis.set_tick_params(width=1)
+    for i, tick in enumerate(axes[0].yaxis.get_major_ticks()):
+        tick.tick1line.set_markeredgecolor(colors[len(colors)-i-1])
+        tick.tick1line.set_markeredgewidth(4)
+
+
     #last parameter is the metric, let the colorbar do the metric
     axes[-1].yaxis.set_ticks_position('none')
     axes[-1].set_yticklabels([])
@@ -136,6 +142,7 @@ def plot_parameters(size, dpi,
 resolution = (256,256, 96)
 
 parameters=[]
+colors=[]
 values=[]
 order=[]
 
@@ -153,6 +160,9 @@ while True:
     if msg_type == 'SetParameters':
         parameters=tc.decode_strings(msg_data)
 
+    if msg_type == 'SetColors':
+        colors=tc.decode_strings(msg_data)
+
     if msg_type == 'ClearValues':
         values = []
     if msg_type == 'AppendValues':
@@ -163,8 +173,10 @@ while True:
 
     if msg_type == 'Render':
         if resolution[0]>0 and resolution[1]>0:
-            img=plot_parameters(resolution[0:2],resolution[2],parameters,values,order)
+            img=plot_parameters(resolution[0:2],resolution[2],parameters,colors,values,order)
             tc.send_msg(app_socket, 'ImageData', tc.encode_image(img))
+        else:
+            tc.send_msg(app_socket, 'ImageError')
 
     if msg_type == 'Exit':
         break

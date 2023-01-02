@@ -10,7 +10,8 @@ import PIL
 
 def plot_metrics(prefix, size, dpi, samples=100, labels=[],
                 loss=[], loss_colors=[], loss_shift=(0,0), loss_scale=(1,1),
-                metric=[], metric_colors=[], metric_shift=(0,0), metric_scale=(1,1)):
+                metric=[], metric_colors=[], metric_shift=(0,0), metric_scale=(1,1),
+                best=[]):
     """Metrics Plot
 
     Usage:
@@ -59,12 +60,21 @@ def plot_metrics(prefix, size, dpi, samples=100, labels=[],
     loss_ymax=loss_ymax/loss_scale[1]
 
     ax1.axis(xmin=loss_xmin,xmax=loss_xmax,ymin=loss_ymin,ymax=loss_ymax)
+    def forward(x):
+        return x**(1/2)
+    def inverse(x):
+        return x**2
+    ax1.set_yscale('function', functions=(forward, inverse))
     ax1.spines['top'].set_visible(False)
     ax1.spines['right'].set_visible(False)
     ax1.spines['left'].set_color('#707070')
     ax1.spines['bottom'].set_color('#707070')
     for i in range(len(loss)):
-        ax1.plot(loss[i],label=str(i) if i>=len(labels) else labels[i],color=loss_colors[i%len(loss_colors)])
+        ax1.plot(loss[i], label=str(i) if i>=len(labels) else labels[i], color=loss_colors[i%len(loss_colors)])
+    for i in range(len(best)):
+        if best[i]>=0:
+            ax1.plot(best[i], loss[i][best[i]], color=loss_colors[i%len(loss_colors)], marker='o', markersize=3)
+            ax1.plot(best[i], loss[i][best[i]], color=(1, 1, 1, 0.5), marker='o', markersize=3)
     if labels and loss and loss[0]:
         ax1.legend(bbox_to_anchor=(1, 1), loc='upper right', ncol=1, prop={'size': 8})
     ax1.grid(color = '#303030')
@@ -108,7 +118,11 @@ def plot_metrics(prefix, size, dpi, samples=100, labels=[],
     ax2.spines['left'].set_color('#707070')
     ax2.spines['bottom'].set_color('#707070')
     for i in range(len(metric)):
-        ax2.plot(metric[i],color=metric_colors[i%len(metric_colors)])
+        ax2.plot(metric[i], color=metric_colors[i%len(metric_colors)])
+    for i in range(len(best)):
+        if best[i]>=0:
+            ax2.plot(best[i], metric[i][best[i]], color=metric_colors[i%len(loss_colors)], marker='o', markersize=3)
+            ax2.plot(best[i], metric[i][best[i]], color=(1, 1, 1, 0.5), marker='o', markersize=3)
     ax2.grid(color = '#303030')
     ax2.xaxis.set_major_locator(MaxNLocator(nbins='auto', integer=True))
 
@@ -136,6 +150,8 @@ metric_colors=[]
 metric_labels = []
 metric_shift = (0,0)
 metric_scale = (1,1)
+
+best=[]
 
 app_socket = tc.connect()
 while True:
@@ -176,10 +192,15 @@ while True:
     if msg_type == 'SetMetricScale':
         metric_scale = tc.decode_floats(msg_data)
 
+    if msg_type == 'SetBest':
+        best = tc.decode_ints(msg_data)
+
     if msg_type == 'Render':
         if resolution[0]>0 and resolution[1]>0:
-            img=plot_metrics(prefix,resolution[0:2],resolution[2],samples,labels,loss,loss_colors,loss_shift,loss_scale,metric,metric_colors,metric_shift,metric_scale)
+            img=plot_metrics(prefix,resolution[0:2],resolution[2],samples,labels,loss,loss_colors,loss_shift,loss_scale,metric,metric_colors,metric_shift,metric_scale,best)
             tc.send_msg(app_socket, 'ImageData', tc.encode_image(img))
+        else:
+            tc.send_msg(app_socket, 'ImageError')
 
     if msg_type == 'Exit':
         break

@@ -65,6 +65,8 @@ while True:
                 tc.send_msg(app_socket, 'ImageError')
             else:
                 tc.send_msg(app_socket, 'ImageData', tc.encode_image(img))
+        else:
+            tc.send_msg(app_socket, 'ImageError')
 
     if msg_type == 'Exit':
         break

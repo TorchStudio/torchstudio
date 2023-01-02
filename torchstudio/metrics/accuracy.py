@@ -9,7 +9,7 @@ class Accuracy(Metric):
         threshold: error threshold below which predictions are considered accurate (not used in multiclass)
         normalize: if set to True, normalize predictions with sigmoid or softmax before calculating the accuracy
     """
-    def __init__(self, threshold: float = 0.1, normalize: bool = False):
+    def __init__(self, threshold: float = 0.01, normalize: bool = False):
         self.threshold = threshold
         self.normalize = normalize
         self.reset()

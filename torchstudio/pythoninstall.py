@@ -14,6 +14,15 @@ if importlib.util.find_spec("conda") is None:
 
 import conda.cli.python_api as Conda
 
+#increase rows (from default 20 when no terminal is found) to display all parallel packages downloads at once
+from tqdm import tqdm
+init_source=tqdm.__init__
+def init_patch(self, **kwargs):
+    kwargs['ncols']=80
+    kwargs['nrows']=80
+    init_source(self, **kwargs)
+tqdm.__init__=init_patch
+
 if not args.package:
     #https://edcarp.github.io/introduction-to-conda-for-data-scientists/03-using-packages-and-channels/index.html#alternative-syntax-for-installing-packages-from-specific-channels
     conda_install=f"{args.channel}::pytorch {args.channel}::torchvision {args.channel}::torchaudio {args.channel}::torchtext"

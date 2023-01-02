@@ -21,7 +21,7 @@ class Signal(Renderer):
             'fixed': use the min and max values defined by the user
             'fit': use the min and max values of the signal
             'auto': fit when the values are beyond the user-defined min and max values
-        colors: List of colors for each channel
+        colors: List of colors for each channel (looped if necessary)
         grid: Display grid
         legend: Display legend with more than one channel
     """

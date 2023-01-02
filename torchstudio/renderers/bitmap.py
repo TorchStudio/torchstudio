@@ -18,11 +18,13 @@ class Bitmap(Renderer):
     Args:
         colormap (str): Colormap to be used for single channel bitmaps.
             Values can be 'viridis', 'plasma', 'inferno', 'magma', 'cividis'
+        colors: List of colors for each channel for multi channels bitmaps (looped if necessary)
         rotate (int): Number of time to rotate the bitmap by 90 degree (counter-clockwise)
     """
-    def __init__(self, colormap='inferno', rotate=0):
+    def __init__(self, colormap='inferno', colors=['#ff0000','#00ff00','#0000ff','#ffff00','#00ffff','#ff00ff'], rotate=0):
         super().__init__()
         self.colormap=colormap
+        self.colors=colors
         self.rotate=rotate
 
     def render(self, title, tensor, size, dpi, shift=(0,0,0,0), scale=(1,1,1,1), input_tensors=[], target_tensor=None, labels=[]):
@@ -32,21 +34,18 @@ class Bitmap(Renderer):
             return None
 
         #flatten
-        if tensor.shape[0]==2: #2 channels, pad with a third channel
-            zero = np.zeros((1,tensor.shape[1], tensor.shape[2]))
-            tensor = np.concatenate((tensor,zero),0)
-        if tensor.shape[0]>3: #more than 3 channels, add additional channels into the first 3
-            for i in range(3,tensor.shape[0]):
-                tensor[[i%3]]+=tensor[[i]]
-                if i%6>=3: #add R G B R G B to RG GB BR R G B
-                    tensor[[(i+1)%3]]+=tensor[[i]]
-            tensor=tensor[[0,1,2]]
+        if tensor.shape[0]>1:
+            zero = np.zeros((3,tensor.shape[1], tensor.shape[2]))
+            for i in range(tensor.shape[0]):
+                color=np.array(mpl.colors.to_rgb(self.colors[i%len(self.colors)])).reshape(3,1,1)
+                zero+=tensor[[i]]*color
+            tensor=zero
 
         if self.rotate>0:
             tensor=np.rot90(tensor, self.rotate, axes=(1, 2))
 
         #apply brightness, gamma and conversion to uint8, then transform CHW to HWC
-        tensor = np.multiply(np.clip(np.power(tensor*scale[0],1/scale[3]),0,1),255).astype(np.uint8)
+        tensor = np.multiply(np.clip(np.power(np.clip(tensor*scale[0],0,1),1/scale[3]),0,1),255).astype(np.uint8)
         tensor = tensor.transpose((1, 2, 0))
 
         #set up matplotlib renderer, style, figure and axis

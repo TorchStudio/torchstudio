@@ -76,8 +76,17 @@ else:
 
     print("Listing devices...\n", file=sys.stderr)
     devices = {}
-    devices['cpu'] = {'name': 'CPU', 'pin_memory': False, 'modes': ['FP32']}
+    devices['cpu'] = {'name': 'CPU', 'modes': ['FP32']}
+
+    cuda_names = {}
     for i in range(torch.cuda.device_count()):
+        name=torch.cuda.get_device_name(i)
+        if name in cuda_names:
+            cuda_names[name]+=1
+            name+=" "+str(cuda_names[name])
+        else:
+            cuda_names[name]=1
+
         modes = ['FP32']
         #same as torch.cuda.is_bf16_supported() but compatible with PyTorch<1.10, and not limited to current cuda device only
         cu_vers = torch.version.cuda
@@ -90,10 +99,13 @@ else:
             modes+=['TF32','FP16','BF16']
         if compute_capability==7: #RTX 2000
             modes+=['FP16']
-        devices['cuda:'+str(i)] = {'name': torch.cuda.get_device_name(i), 'pin_memory': True, 'modes': modes}
+
+        devices['cuda:'+str(i)] = {'name': name, 'modes': modes}
+
     if pytorch_version>=(1,12,0):
         if torch.backends.mps.is_available():
-            devices['mps'] = {'name': 'Metal', 'pin_memory': False, 'modes': ['FP32']}
+            devices['mps'] = {'name': 'Metal', 'modes': ['FP32']}
+
     #other possible devices:
     #'hpu' (https://docs.habana.ai/en/latest/PyTorch_User_Guide/PyTorch_User_Guide.html)
     #'dml' (https://docs.microsoft.com/en-us/windows/ai/directml/gpu-pytorch-windows)

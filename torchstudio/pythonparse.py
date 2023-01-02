@@ -353,7 +353,7 @@ class MyScheduler(optim._LRScheduler):
 def scan_folder(path):
     path=path.replace('.','/')
     codes=[]
-    for filename in listdir(path):
+    for filename in sorted(listdir(path)):
         if isfile(join(path, filename)):
             with open(join(path, filename), "r") as file:
                 codes.append(file.read())

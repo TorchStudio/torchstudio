@@ -13,26 +13,51 @@ from torchstudio.modules import safe_exec
 import os
 import sys
 import io
-import tempfile
 from tqdm.auto import tqdm
 from collections.abc import Iterable
+import threading
 
 
 class CachedDataset(Dataset):
-    def __init__(self, disk_cache=False):
-        self.reset(disk_cache)
-
-    def add_sample(self, data):
-        if self.disk_cache:
-            file=tempfile.TemporaryFile(prefix='torchstudio.'+str(len(self.index))+'.') #guaranteed to be deleted on win/mac/linux: https://bugs.python.org/issue4928
-            file.write(data)
-            self.index.append(file)
-        else:
-            self.index.append(tc.decode_torch_tensors(data))
-
-    def reset(self, disk_cache=False):
+    def __init__(self, train=True, hash=None):
         self.index = []
-        self.disk_cache=disk_cache
+        self.cache=None
+        if hash:
+            self.filename='cache/dataset-'+('training' if train==True else 'validation')
+            if os.path.exists(self.filename):
+                self.cache = open(self.filename, 'rb')
+                cached_hash=self.cache.read(16)
+                if cached_hash==hash:
+                    size=self.cache.read(4)
+                    while size:
+                        data=self.cache.read(int.from_bytes(size, 'little'))
+                        self.index.append(tc.decode_torch_tensors(data))
+                        size=self.cache.read(4)
+                    self.cache.close()
+                    return
+                else:
+                    self.cache.close()
+                    os.remove(self.filename)
+            if os.path.exists(self.filename+'.tmp'):
+                os.remove(self.filename+'.tmp')
+            if not os.path.exists('cache'):
+                os.mkdir('cache')
+            self.cache = open(self.filename+'.tmp', 'wb')
+            self.cache.write(hash)
+
+    def add_sample(self, data=None):
+        if data:
+            if self.cache:
+                self.cache.write(len(data).to_bytes(4, 'little'))
+                self.cache.write(data)
+            self.index.append(tc.decode_torch_tensors(data))
+        else:
+            if self.cache:
+                self.cache.close()
+                try:
+                    os.rename(self.filename+'.tmp', self.filename)
+                except:
+                    pass
 
     def __len__(self):
         return len(self.index)
@@ -40,14 +65,7 @@ class CachedDataset(Dataset):
     def __getitem__(self, id):
         if id<0 or id>=len(self):
             raise IndexError
-
-        if self.disk_cache:
-            file=self.index[id]
-            file.seek(0)
-            sample=tc.decode_torch_tensors(file.read())
-        else:
-            sample=self.index[id]
-        return sample
+        return self.index[id]
 
 def deepcopy_cpu(value):
     if isinstance(value, torch.Tensor):
@@ -62,11 +80,14 @@ def deepcopy_cpu(value):
 
 modules_valid=True
 
-train_dataset = CachedDataset()
-valid_dataset = CachedDataset()
+train_dataset = CachedDataset(True)
+valid_dataset = CachedDataset(False)
 train_bar = None
 
 model = None
+sender_thread = None
+
+cache = None
 
 app_socket = tc.connect()
 print("Training script connected\n", file=sys.stderr)
@@ -82,6 +103,10 @@ while True:
     if msg_type == 'SetMode':
         print("Setting mode...\n", file=sys.stderr)
         mode=tc.decode_strings(msg_data)[0]
+
+    if msg_type == 'SetCache':
+        print("Setting cache...\n", file=sys.stderr)
+        cache = True if tc.decode_ints(msg_data)[0]==1 else False
 
     if msg_type == 'SetTorchScriptModel' and modules_valid:
         if msg_data:
@@ -156,10 +181,11 @@ while True:
             scheduler = scheduler_env['scheduler']
 
     if msg_type == 'SetHyperParametersValues' and modules_valid: #set other hyperparameters values
-        batch_size, shuffle, epochs, early_stop, restore_best = tc.decode_ints(msg_data)
+        batch_size, shuffle, epochs, early_stop = tc.decode_ints(msg_data)
         shuffle=True if shuffle==1 else False
-        early_stop=True if early_stop==1 else False
-        restore_best=True if restore_best==1 else False
+
+    if msg_type == 'SetBestMetrics':
+        best_train_loss, best_valid_loss, best_train_metric, best_valid_metric = tc.decode_floats(msg_data)
 
     if msg_type == 'StartTrainingServer' and modules_valid:
         print("Caching...\n", file=sys.stderr)
@@ -189,23 +215,40 @@ while True:
             reverse_tunnel = sshtunnel.Tunnel(sshclient, sshtunnel.ReverseTunnel, 'localhost', 0, 'localhost', int(address[1]))
             address[1]=str(reverse_tunnel.lport)
 
-        tc.send_msg(app_socket, 'TrainingServerRequestingAllSamples', tc.encode_strings(address))
+        tc.send_msg(app_socket, 'ServerRequestingDataset', tc.encode_strings(address))
+
         dataset_socket=tc.start_server(training_server)
-        train_dataset.reset()
-        valid_dataset.reset()
+
+        tc.send_msg(dataset_socket, 'RequestMetaInfos')
+        tc.send_msg(dataset_socket, 'RequestHash')
 
         while True:
             dataset_msg_type, dataset_msg_data = tc.recv_msg(dataset_socket)
-
-            if dataset_msg_type == 'NumSamples':
-                num_samples=tc.decode_ints(dataset_msg_data)[0]
-                pbar=tqdm(total=num_samples, desc='Caching...', bar_format='{l_bar}{bar}| {remaining} left\n\n') #see https://github.com/tqdm/tqdm#parameters
 
             if dataset_msg_type == 'InputTensorsID' and modules_valid:
                 input_tensors_id = tc.decode_ints(dataset_msg_data)
 
             if dataset_msg_type == 'OutputTensorsID' and modules_valid:
                 output_tensors_id = tc.decode_ints(dataset_msg_data)
+
+            if dataset_msg_type == 'DatasetHash':
+                train_dataset=CachedDataset(True)
+                valid_dataset=CachedDataset(False)
+                if cache:
+                    train_dataset=CachedDataset(True, dataset_msg_data)
+                    valid_dataset=CachedDataset(False, dataset_msg_data)
+                if len(train_dataset)==0 and len(valid_dataset)==0:
+                    tc.send_msg(dataset_socket, 'RequestAllSamples', tc.encode_strings(address))
+                elif len(train_dataset)==0:
+                    tc.send_msg(dataset_socket, 'RequestTrainingSamples', tc.encode_strings(address))
+                elif len(valid_dataset)==0:
+                    tc.send_msg(dataset_socket, 'RequestValidationSamples', tc.encode_strings(address))
+                else:
+                     break
+
+            if dataset_msg_type == 'NumSamples':
+                num_samples=tc.decode_ints(dataset_msg_data)[0]
+                pbar=tqdm(total=num_samples, desc='Caching...', bar_format='{l_bar}{bar}| {remaining} left\n\n') #see https://github.com/tqdm/tqdm#parameters
 
             if dataset_msg_type == 'TrainingSample':
                 train_dataset.add_sample(dataset_msg_data)
@@ -216,13 +259,16 @@ while True:
                 pbar.update(1)
 
             if dataset_msg_type == 'DoneSending':
+                train_dataset.add_sample()
+                valid_dataset.add_sample()
                 pbar.close()
-                tc.send_msg(dataset_socket, 'DoneReceiving')
-                dataset_socket.close()
-                training_server.close()
-                if sshaddress and sshport and username:
-                    sshclient.close() #ssh connection must be closed only when all tcp socket data was received on the remote side, hence the DoneSending/DoneReceiving ping pong
                 break
+
+        tc.send_msg(dataset_socket, 'DisconnectFromWorkerServer')
+        dataset_socket.close()
+        training_server.close()
+        if sshaddress and sshport and username:
+            sshclient.close() #ssh connection must be closed only when all tcp socket data was received on the remote side, hence the DoneSending/DisconnectFromWorkerServer ping pong
 
         train_loader = torch.utils.data.DataLoader(train_dataset,batch_size=batch_size, shuffle=shuffle, pin_memory=pin_memory)
         valid_loader = torch.utils.data.DataLoader(valid_dataset,batch_size=batch_size, shuffle=False, pin_memory=pin_memory)
@@ -280,10 +326,10 @@ while True:
                     metric.update(output, target)
 
         train_loss = train_loss/len(train_dataset)
-        train_metrics = 0
+        train_metric = 0
         for metric in metrics:
-            train_metrics = train_metrics+metric.compute().item()
-        train_metrics/=len(metrics)
+            train_metric = train_metric+metric.compute().item()
+        train_metric/=len(metrics)
         scheduler.step()
 
         #validation
@@ -307,26 +353,41 @@ while True:
                     metric.update(output, target)
 
         valid_loss = valid_loss/len(valid_dataset)
-        valid_metrics = 0
+        valid_metric = 0
         for metric in metrics:
-            valid_metrics = valid_metrics+metric.compute().item()
-        valid_metrics/=len(metrics)
+            valid_metric = valid_metric+metric.compute().item()
+        valid_metric/=len(metrics)
 
-        tc.send_msg(app_socket, 'TrainingLoss', tc.encode_floats(train_loss))
-        tc.send_msg(app_socket, 'ValidationLoss', tc.encode_floats(valid_loss))
-        tc.send_msg(app_socket, 'TrainingMetric', tc.encode_floats(train_metrics))
-        tc.send_msg(app_socket, 'ValidationMetric', tc.encode_floats(valid_metrics))
+        #threaded (async) results sending, so to send last metrics and best weights when available while calculating new ones
+        if sender_thread:
+            sender_thread.join()
 
-        buffer=io.BytesIO()
-        torch.save(deepcopy_cpu(model.state_dict()), buffer)
-        print("Training... epoch "+str(scheduler.last_epoch-1)+' | (save)\n\n', file=sys.stderr)
-        tc.send_msg(app_socket, 'ModelState', buffer.getvalue())
+        metrics_values=[train_loss, valid_loss, train_metric, valid_metric]
 
-        buffer=io.BytesIO()
-        torch.save(deepcopy_cpu(optimizer.state_dict()), buffer)
-        tc.send_msg(app_socket, 'OptimizerState', buffer.getvalue())
+        model_state_buffer=None
+        optimizer_state_buffer=None
 
-        tc.send_msg(app_socket, 'Trained')
+        if valid_metric>best_valid_metric or (valid_metric==best_valid_metric and valid_loss<best_valid_loss):
+            model_state_buffer=io.BytesIO()
+            torch.save(deepcopy_cpu(model.state_dict()), model_state_buffer)
+            optimizer_state_buffer=io.BytesIO()
+            torch.save(deepcopy_cpu(optimizer.state_dict()), optimizer_state_buffer)
+
+            best_train_loss=train_loss
+            best_valid_loss=valid_loss
+            best_train_metric=train_metric
+            best_valid_metric=valid_metric
+
+        def send_results_back():
+            tc.send_msg(app_socket, 'Metrics', tc.encode_floats(metrics_values))
+            if model_state_buffer:
+                tc.send_msg(app_socket, 'ModelState', model_state_buffer.getvalue())
+            if optimizer_state_buffer:
+                tc.send_msg(app_socket, 'OptimizerState', optimizer_state_buffer.getvalue())
+            tc.send_msg(app_socket, 'TrainingResultsSent')
+
+        sender_thread=threading.Thread(target=send_results_back)
+        sender_thread.start()
 
         #create train_bar only after first successful training to avoid ghost progress message after an error
         if train_bar is not None:
@@ -350,9 +411,12 @@ while True:
         if model is not None:
             with torch.set_grad_enabled(False):
                 model.eval()
-                output_tensors=model(*input_tensors)
-                output_tensors=[output.cpu() for output in output_tensors]
-                tc.send_msg(app_socket, 'InferedTensors', tc.encode_torch_tensors(output_tensors))
+                error_msg, output_tensors = safe_exec(model, input_tensors, description='model inference')
+                if error_msg:
+                    print(error_msg, file=sys.stderr)
+                else:
+                    output_tensors=[output.cpu() for output in output_tensors]
+                    tc.send_msg(app_socket, 'InferedTensors', tc.encode_torch_tensors(output_tensors))
 
     if msg_type == 'SaveWeights':
         path = tc.decode_strings(msg_data)[0]

@@ -62,7 +62,7 @@ class ReverseTunnel():
 
     def handler(self, rev_socket, origin, laddress):
         rev_handler = ReverseTunnelHandler(rev_socket, self.dhost, self.dport, self.lhost, self.lport)
-        rev_handler.setDaemon(True)
+        rev_handler.daemon=True
         rev_handler.start()
         self.handlers.append(rev_handler)
 
@@ -246,7 +246,7 @@ if __name__ == "__main__":
     parser.add_argument("--username", help="ssh server username", type=str, default=None)
     parser.add_argument("--password", help="ssh server password", type=str, default=None)
     parser.add_argument("--keyfile", help="ssh server key file", type=str, default=None)
-    parser.add_argument('--clean', help="clean all files", action='store_true', default=False)
+    parser.add_argument('--clean', help="cleaning level (0: cache, 1: environment, 2: all)", type=int, default=None)
     parser.add_argument("--command", help="command to execute or run python scripts", type=str, default=None)
     parser.add_argument("--script", help="python script to be launched on the server", type=str, default=None)
     parser.add_argument("--address", help="address to which the script must connect", type=str, default=None)
@@ -263,12 +263,25 @@ if __name__ == "__main__":
         print("Error: could not connect to remote server", file=sys.stderr)
         exit(1)
 
-    if args.clean:
-        print("Cleaning...", file=sys.stderr)
-        stdin, stdout, stderr = sshclient.exec_command('rm -r -f TorchStudio')
-        exit_status = stdout.channel.recv_exit_status()
-        stdin, stdout, stderr = sshclient.exec_command('rmdir /s /q TorchStudio')
-        exit_status = stdout.channel.recv_exit_status()
+    if args.clean is not None:
+        if args.clean==0:
+            print("Cleaning TorchStudio cache...", file=sys.stderr)
+            stdin, stdout, stderr = sshclient.exec_command('rm -r -f TorchStudio/cache')
+            exit_status = stdout.channel.recv_exit_status()
+            stdin, stdout, stderr = sshclient.exec_command('rmdir /s /q TorchStudio\cache')
+            exit_status = stdout.channel.recv_exit_status()
+        if args.clean==1:
+            print("Deleting TorchStudio environment...", file=sys.stderr)
+            stdin, stdout, stderr = sshclient.exec_command('rm -r -f TorchStudio/python')
+            exit_status = stdout.channel.recv_exit_status()
+            stdin, stdout, stderr = sshclient.exec_command('rmdir /s /q TorchStudio\python')
+            exit_status = stdout.channel.recv_exit_status()
+        if args.clean==2:
+            print("Deleting all TorchStudio files...", file=sys.stderr)
+            stdin, stdout, stderr = sshclient.exec_command('rm -r -f TorchStudio')
+            exit_status = stdout.channel.recv_exit_status()
+            stdin, stdout, stderr = sshclient.exec_command('rmdir /s /q TorchStudio')
+            exit_status = stdout.channel.recv_exit_status()
         sshclient.close()
         print("Cleaning complete")
         exit(0)
@@ -321,6 +334,11 @@ if __name__ == "__main__":
     if args.command:
         if args.script:
             print("Launching remote script...", file=sys.stderr)
+            if '\\python' in args.command: #python on Windows, add path variables
+                python_root=args.command[:args.command.rindex('\\python')]
+                if '&&' in python_root:
+                    python_root=python_root[python_root.rindex('&&')+2:]
+                args.command='set PATH=%PATH%;'+python_root+';'+python_root+'\\Library\\mingw-w64\\bin;'+python_root+'\\Library\\bin;'+python_root+'\\bin&&'+args.command
             stdin, stdout, stderr = sshclient.exec_command("cd TorchStudio&&"+args.command+" -u -X utf8 -m "+' '.join([args.script]+other_args))
         else:
             print("Executing remote command...", file=sys.stderr)
@@ -329,10 +347,10 @@ if __name__ == "__main__":
         while not stdout.channel.exit_status_ready():
             time.sleep(.01) #lower CPU usage
             if stdout.channel.recv_stderr_ready():
-                sys.stderr.buffer.write(stdout.channel.recv_stderr(1024).replace(b'\r\n',b'\n'))
+                sys.stderr.buffer.write(stdout.channel.recv_stderr(8192))
                 time.sleep(.01) #for stdout/stderr sync
             if stdout.channel.recv_ready():
-                sys.stdout.buffer.write(stdout.channel.recv(1024).replace(b'\r\n',b'\n'))
+                sys.stdout.buffer.write(stdout.channel.recv(8192))
                 time.sleep(.01) #for stdout/stderr sync
     else:
         if args.script:

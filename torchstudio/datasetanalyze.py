@@ -27,22 +27,22 @@ while True:
         print("Analyzing...\n", file=sys.stderr)
 
         analysis_server, address = tc.generate_server()
+        tc.send_msg(app_socket, 'ServerRequestingDataset', tc.encode_strings(address))
+
+        dataset_socket=tc.start_server(analysis_server)
+
+        tc.send_msg(dataset_socket, 'RequestMetaInfos')
 
         if analyzer_env['analyzer'].train is None:
-            request_msg='AnalysisServerRequestingAllSamples'
+            request_msg='RequestAllSamples'
         elif analyzer_env['analyzer'].train==True:
-            request_msg='AnalysisServerRequestingTrainingSamples'
+            request_msg='RequestTrainingSamples'
         elif analyzer_env['analyzer'].train==False:
-            request_msg='AnalysisServerRequestingValidationSamples'
-        tc.send_msg(app_socket, request_msg, tc.encode_strings(address))
-        dataset_socket=tc.start_server(analysis_server)
+            request_msg='RequestValidationSamples'
+        tc.send_msg(dataset_socket, request_msg, tc.encode_strings(address))
 
         while True:
             dataset_msg_type, dataset_msg_data = tc.recv_msg(dataset_socket)
-
-            if dataset_msg_type == 'NumSamples':
-                num_samples=tc.decode_ints(dataset_msg_data)[0]
-                pbar=tqdm(total=num_samples, desc='Analyzing...', bar_format='{l_bar}{bar}| {remaining} left\n\n') #see https://github.com/tqdm/tqdm#parameters
 
             if dataset_msg_type == 'InputTensorsID':
                 input_tensors_id=tc.decode_ints(dataset_msg_data)
@@ -52,6 +52,10 @@ while True:
 
             if dataset_msg_type == 'Labels':
                 labels=tc.decode_strings(dataset_msg_data)
+
+            if dataset_msg_type == 'NumSamples':
+                num_samples=tc.decode_ints(dataset_msg_data)[0]
+                pbar=tqdm(total=num_samples, desc='Analyzing...', bar_format='{l_bar}{bar}| {remaining} left\n\n') #see https://github.com/tqdm/tqdm#parameters
 
             if dataset_msg_type == 'StartSending':
                 error_msg, return_value = safe_exec(analyzer_env['analyzer'].start_analysis, (num_samples, input_tensors_id, output_tensors_id, labels), description='analyzer definition')
@@ -85,7 +89,7 @@ while True:
             if dataset_msg_type == 'DoneSending':
                 pbar.close()
                 error_msg, return_value = safe_exec(analyzer_env['analyzer'].finish_analysis, description='analyzer definition')
-                tc.send_msg(dataset_socket, 'DoneReceiving')
+                tc.send_msg(dataset_socket, 'DisconnectFromWorkerServer')
                 dataset_socket.close()
                 analysis_server.close()
                 if error_msg is not None:
@@ -106,12 +110,14 @@ while True:
 
     if msg_type == 'RequestAnalysisReport':
         resolution = tc.decode_ints(msg_data)
-        if 'analyzer' in analyzer_env:
+        if 'analyzer' in analyzer_env and resolution[0]>0 and resolution[1]>0:
             error_msg, return_value = safe_exec(analyzer_env['analyzer'].generate_report, (resolution[0:2],resolution[2]), description='analyzer definition')
             if error_msg is not None:
                 print(error_msg, file=sys.stderr)
             if return_value is not None:
                 tc.send_msg(app_socket, 'ReportImage', tc.encode_image(return_value))
+        else:
+            tc.send_msg(app_socket, 'ReportImage')
 
     if msg_type == 'Exit':
         break
