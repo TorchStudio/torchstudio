@@ -48,16 +48,14 @@ class GenericLoader(Dataset):
         self.classes = []
         self.transforms = transforms
         if not os.path.exists(path):
-            print("Path not found.", file=sys.stderr)
-            return
+            raise ValueError("Path not found")
         for root, dirs, files in os.walk(path):
             for file in files:
                 if file.endswith(exts):
                     paths.append(os.path.join(root, file).replace('\\','/'))
         paths=sorted(paths)
         if not paths:
-            print("No files found.", file=sys.stderr)
-            return
+            raise ValueError("No files found")
         self.classification=classification
         if classification:
             if separator == '/':
@@ -68,34 +66,45 @@ class GenericLoader(Dataset):
                     self.samples.append([path, self.classes.index(class_name)])
             elif separator:
                 for path in paths:
-                    class_name = path.split('/')[-1].split(separator)[0]
+                    file_name = path.split('.')[-2].split('/')[-1]
+                    class_name = file_name[:file_name.rindex(separator)]
                     if class_name not in self.classes:
                         self.classes.append(class_name)
                     self.samples.append([path, self.classes.index(class_name)])
             else:
-                print("You need a separator with classication datasets", file=sys.stderr)
-                return
+                raise ValueError("You need a separator with classication datasets")
+
         else:
-            samples_index = dict()
             if separator == '/':
+                component_lastid = dict()
                 for path in paths:
-                    components_name=path.split('/')[-2]
-                    sample_name = path.split('/')[-1].split('.')[-2]
-                    if sample_name not in samples_index:
-                        samples_index[sample_name] = len(self.samples)
+                    component_name=path.split('/')[-2]
+                    if component_name not in component_lastid:
+                        component_lastid[component_name]=0
+                    else:
+                        component_lastid[component_name]+=1
+                    if component_lastid[component_name]==len(self.samples):
                         self.samples.append([])
-                    self.samples[samples_index[sample_name]].append(path)
+                    self.samples[component_lastid[component_name]].append(path)
             elif separator:
+                samples_index = dict()
+                max_separator = 0
                 for path in paths:
-                    components_name = path.split('.')[-2].split(separator)[-1]
-                    sample_name = path.split('/')[-1].split(separator)[0]
+                    file_name = path.split('.')[-2].split('/')[-1]
+                    separator_count = file_name.count(separator)
+                    max_separator = separator_count if separator_count>max_separator else max_separator
+                for path in paths:
+                    file_name = path.split('.')[-2].split('/')[-1]
+                    component_name = file_name[file_name.rindex(separator)+len(separator):] if file_name.count(separator)==max_separator else ''
+                    sample_name = file_name[:file_name.rindex(separator)] if file_name.count(separator)==max_separator else file_name
                     if sample_name not in samples_index:
                         samples_index[sample_name] = len(self.samples)
                         self.samples.append([])
                     self.samples[samples_index[sample_name]].append(path)
             else:
+                samples_index = dict()
                 single_folder=True
-                file_root=path[:path.rfind("/")]
+                file_root=paths[0][:paths[0].rfind("/")+1]
                 for path in paths:
                     if not path.startswith(file_root):
                         single_folder=False
@@ -109,7 +118,7 @@ class GenericLoader(Dataset):
                         self.samples[samples_index[sample_name]].append(path)
                 else:
                     for path in paths:
-                        components_name = path.split('/')[-1].split('.')[-2]
+                        component_name = path.split('/')[-1].split('.')[-2]
                         sample_name = path.split('/')[-2]
                         if sample_name not in samples_index:
                             samples_index[sample_name] = len(self.samples)
