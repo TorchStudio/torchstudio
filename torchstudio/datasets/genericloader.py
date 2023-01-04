@@ -128,7 +128,7 @@ class GenericLoader(Dataset):
     def to_tensors(self, path:str):
         if path.endswith('.jpg') or path.endswith('.jpeg') or path.endswith('.png'):
             img=Image.open(path)
-            if img.getpalette():
+            if img.mode=='1' or img.mode=='L' or img.mode=='P':
                 return [torch.from_numpy(np.array(img, dtype=np.uint8))]
             else:
                 trans=torchvision.transforms.ToTensor()

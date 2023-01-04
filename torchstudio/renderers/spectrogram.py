@@ -21,11 +21,12 @@ class Spectrogram(Renderer):
         colors: List of colors for each channel for multi channels spectrograms (looped if necessary)
         rotate (int): Number of time to rotate the bitmap by 90 degree (counter-clockwise)
     """
-    def __init__(self, colormap='inferno', colors=['#ff0000','#00ff00','#0000ff','#ffff00','#00ffff','#ff00ff'], rotate=0):
+    def __init__(self, colormap='inferno', colors=['#ff0000','#00ff00','#0000ff','#ffff00','#00ffff','#ff00ff'], rotate=0, invert=False):
         super().__init__()
         self.colormap=colormap
         self.colors=colors
         self.rotate=rotate
+        self.invert=invert
 
     def render(self, title, tensor, size, dpi, shift=(0,0,0,0), scale=(1,1,1,1), input_tensors=[], target_tensor=None, labels=[]):
         #check dimensions
@@ -91,8 +92,12 @@ class Spectrogram(Renderer):
         render_size=(xmax-xmin,ymin-ymax)
         xmin-=shift[0]/scale[1]*render_size[0]
         xmax-=shift[0]/scale[1]*render_size[0]
-        ymin+=shift[1]/scale[1]*render_size[1]
-        ymax+=shift[1]/scale[1]*render_size[1]
+        if self.invert:
+            ymin-=shift[1]/scale[1]*render_size[1]
+            ymax-=shift[1]/scale[1]*render_size[1]
+        else:
+            ymin+=shift[1]/scale[1]*render_size[1]
+            ymax+=shift[1]/scale[1]*render_size[1]
 
         #scale
         render_center=(xmin+render_size[0]/2.0,ymax+render_size[1]/2.0)
@@ -100,6 +105,8 @@ class Spectrogram(Renderer):
         xmax=render_center[0]+(render_size[0]/scale[1]/2.0)
         ymax=render_center[1]-(render_size[1]/scale[1]/2.0)
         ymin=render_center[1]+(render_size[1]/scale[1]/2.0)
+        if self.invert:
+            ymin, ymax = ymax, ymin
 
         #render
         plt.axis(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax)

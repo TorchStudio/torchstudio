@@ -7,7 +7,7 @@ import sys
 
 class Bitmap(Renderer):
     """Bitmap Renderer
-    Renders 3D tensors (CHW)
+    Renders 3D tensors (CHW) and 2D tensors of ints (HW)
 
     Usage:
         Drag: pan
@@ -20,20 +20,26 @@ class Bitmap(Renderer):
             Values can be 'viridis', 'plasma', 'inferno', 'magma', 'cividis'
         colors: List of colors for each channel for multi channels bitmaps (looped if necessary)
         rotate (int): Number of time to rotate the bitmap by 90 degree (counter-clockwise)
+        invert (bool): Invert vertical axis.
     """
-    def __init__(self, colormap='inferno', colors=['#ff0000','#00ff00','#0000ff','#ffff00','#00ffff','#ff00ff'], rotate=0):
+    def __init__(self, colormap='inferno', colors=['#ff0000','#00ff00','#0000ff','#ffff00','#00ffff','#ff00ff'], rotate=0, invert=False):
         super().__init__()
         self.colormap=colormap
         self.colors=colors
         self.rotate=rotate
+        self.invert=invert
 
     def render(self, title, tensor, size, dpi, shift=(0,0,0,0), scale=(1,1,1,1), input_tensors=[], target_tensor=None, labels=[]):
         #check dimensions
-        if len(tensor.shape)!=3:
-            print("Bitmap renderer requires a 3D tensor, got a "+str(len(tensor.shape))+"D tensor.", file=sys.stderr)
+        print(str(tensor.dtype))
+        if len(tensor.shape)!=3 and (len(tensor.shape)!=2 or 'int' not in str(tensor.dtype)):
+            print("Bitmap renderer requires a 3D tensor or 2D tensor of ints, got a "+str(len(tensor.shape))+"D tensor.", file=sys.stderr)
             return None
 
         #flatten
+        if len(tensor.shape)==2 and 'int' in str(tensor.dtype):
+            tensor=np.expand_dims(tensor, axis=0)
+
         if tensor.shape[0]>1:
             zero = np.zeros((3,tensor.shape[1], tensor.shape[2]))
             for i in range(tensor.shape[0]):
@@ -81,8 +87,12 @@ class Bitmap(Renderer):
         render_size=(xmax-xmin,ymin-ymax)
         xmin-=shift[0]/scale[1]*render_size[0]
         xmax-=shift[0]/scale[1]*render_size[0]
-        ymin+=shift[1]/scale[1]*render_size[1]
-        ymax+=shift[1]/scale[1]*render_size[1]
+        if self.invert:
+            ymin-=shift[1]/scale[1]*render_size[1]
+            ymax-=shift[1]/scale[1]*render_size[1]
+        else:
+            ymin+=shift[1]/scale[1]*render_size[1]
+            ymax+=shift[1]/scale[1]*render_size[1]
 
         #scale
         render_center=(xmin+render_size[0]/2.0,ymax+render_size[1]/2.0)
@@ -90,6 +100,8 @@ class Bitmap(Renderer):
         xmax=render_center[0]+(render_size[0]/scale[1]/2.0)
         ymax=render_center[1]-(render_size[1]/scale[1]/2.0)
         ymin=render_center[1]+(render_size[1]/scale[1]/2.0)
+        if self.invert:
+            ymin, ymax = ymax, ymin
 
         #render
         plt.axis(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax)
@@ -102,13 +114,3 @@ class Bitmap(Renderer):
         img = PIL.Image.frombytes('RGB',canvas.get_width_height(),canvas.tostring_rgb())
         plt.close()
         return img
-
-#from PIL import ImageDraw
-#img  = PIL.Image.new( mode = "RGB", size = (512, 512), color = (209, 123, 193) )
-#draw = PIL.ImageDraw.Draw(img)
-#font = PIL.ImageFont.truetype("arial.ttf", 72)
-#draw.text((40, 100),"Sample Text\nSecond Line\nThird Line\nEnd",fill=(255,255,255), font=font)
-#tensor = (np.array(img).astype(np.float32)/255).transpose((2,0,1))[[0,1]]
-#print(tensor[0][0][0],tensor.dtype)
-#img = chw_3d(tensor, (400,300), 192)
-#img.save('output.png')
