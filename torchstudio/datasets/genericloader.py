@@ -66,7 +66,7 @@ class GenericLoader(Dataset):
                     self.samples.append([path, self.classes.index(class_name)])
             elif separator:
                 for path in paths:
-                    file_name = path.split('.')[-2].split('/')[-1]
+                    file_name = path[:path.rindex('.')].split('/')[-1]
                     class_name = file_name[:file_name.rindex(separator)]
                     if class_name not in self.classes:
                         self.classes.append(class_name)
@@ -90,11 +90,11 @@ class GenericLoader(Dataset):
                 samples_index = dict()
                 max_separator = 0
                 for path in paths:
-                    file_name = path.split('.')[-2].split('/')[-1]
+                    file_name = path[:path.rindex('.')].split('/')[-1]
                     separator_count = file_name.count(separator)
                     max_separator = separator_count if separator_count>max_separator else max_separator
                 for path in paths:
-                    file_name = path.split('.')[-2].split('/')[-1]
+                    file_name = path[:path.rindex('.')].split('/')[-1]
                     component_name = file_name[file_name.rindex(separator)+len(separator):] if file_name.count(separator)==max_separator else ''
                     sample_name = file_name[:file_name.rindex(separator)] if file_name.count(separator)==max_separator else file_name
                     if sample_name not in samples_index:
