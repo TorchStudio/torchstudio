@@ -20,18 +20,19 @@ class Bitmap(Renderer):
             Values can be 'viridis', 'plasma', 'inferno', 'magma', 'cividis'
         colors: List of colors for each channel for multi channels bitmaps (looped if necessary)
         rotate (int): Number of time to rotate the bitmap by 90 degree (counter-clockwise)
-        invert (bool): Invert vertical axis.
+        invert (bool): Invert vertical axis
+        normalize (bool): Normalize values
     """
-    def __init__(self, colormap='inferno', colors=['#ff0000','#00ff00','#0000ff','#ffff00','#00ffff','#ff00ff'], rotate=0, invert=False):
+    def __init__(self, colormap='inferno', colors=['#ff0000','#00ff00','#0000ff','#ffff00','#00ffff','#ff00ff'], rotate=0, invert=False, normalize=False):
         super().__init__()
         self.colormap=colormap
         self.colors=colors
         self.rotate=rotate
         self.invert=invert
+        self.normalize=normalize
 
     def render(self, title, tensor, size, dpi, shift=(0,0,0,0), scale=(1,1,1,1), input_tensors=[], target_tensor=None, labels=[]):
         #check dimensions
-        print(str(tensor.dtype))
         if len(tensor.shape)!=3 and (len(tensor.shape)!=2 or 'int' not in str(tensor.dtype)):
             print("Bitmap renderer requires a 3D tensor or 2D tensor of ints, got a "+str(len(tensor.shape))+"D tensor.", file=sys.stderr)
             return None
@@ -49,6 +50,12 @@ class Bitmap(Renderer):
 
         if self.rotate>0:
             tensor=np.rot90(tensor, self.rotate, axes=(1, 2))
+
+        tensor=tensor.astype(np.float32)
+        if self.normalize:
+            max_value=np.amax(tensor)
+            if max_value>0:
+                tensor=tensor/max_value
 
         #apply brightness, gamma and conversion to uint8, then transform CHW to HWC
         tensor = np.multiply(np.clip(np.power(np.clip(tensor*scale[0],0,1),1/scale[3]),0,1),255).astype(np.uint8)

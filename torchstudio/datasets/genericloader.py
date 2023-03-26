@@ -34,14 +34,15 @@ class GenericLoader(Dataset):
                 (samples in one folder: 1.ext, 2.ext, ...)
 
         extensions (str):
-            file extension to filters (such as: .jpg, .jpeg, .png, .mp3, .wav, .npy, .npz)
+            file extension to filters
+                (supported: .jpg, .jpeg, .png, .webp, .tif, .tiff, .mp3, .wav, .ogg, .flac, .npy, .npz)
 
         transforms (list):
             list of transforms to apply to the different components of each sample (use None is some components need no transform)
             (ie: [torchvision.transforms.Compose([transforms.Resize(64)]), torchaudio.transforms.Spectrogram()])
     """
 
-    def __init__(self, path:str='', classification:bool=True, separator:str='/', extensions:str='.jpg, .jpeg, .png, .mp3, .wav, .npy, .npz', transforms=[]):
+    def __init__(self, path:str='', classification:bool=True, separator:str='/', extensions:str='.jpg, .jpeg, .png, .webp, .tif, .tiff, .mp3, .wav, .ogg, .flac, .npy, .npz', transforms=[]):
         exts = tuple(extensions.replace(' ','').split(','))
         paths = []
         self.samples = []
@@ -126,27 +127,31 @@ class GenericLoader(Dataset):
                         self.samples[samples_index[sample_name]].append(path)
 
     def to_tensors(self, path:str):
-        if path.endswith('.jpg') or path.endswith('.jpeg') or path.endswith('.png'):
+        tensors = []
+        if path.endswith('.jpg') or path.endswith('.jpeg') or path.endswith('.png') or path.endswith('.webp') or path.endswith('.tif') or path.endswith('.tiff'):
             img=Image.open(path)
-            if img.mode=='1' or img.mode=='L' or img.mode=='P':
-                return [torch.from_numpy(np.array(img, dtype=np.uint8))]
-            else:
-                trans=torchvision.transforms.ToTensor()
-                return [trans(img)]
+            for i in range(img.n_frames):
+                if img.mode=='1' or img.mode=='L' or img.mode=='P':
+                    tensors.append(torch.from_numpy(np.array(img, dtype=np.uint8)))
+                else:
+                    trans=torchvision.transforms.ToTensor()
+                    tensors.append(trans(img))
+                if i<(img.n_frames-1):
+                    img.seek(img.tell()+1)
 
-        if path.endswith('.mp3') or path.endswith('.wav'):
+        if path.endswith('.mp3') or path.endswith('.wav') or path.endswith('.ogg') or path.endswith('.flac'):
             waveform, sample_rate = torchaudio.load(path)
-            return [waveform]
+            tensors.append(waveform)
 
         if path.endswith('.npy') or path.endswith('.npz'):
             arrays = np.load(path)
             if type(arrays) == dict:
-                tensors = []
                 for array in arrays:
                     tensors.append(torch.from_numpy(arrays[array]))
-                return tensors
             else:
-                return [torch.from_numpy(arrays)]
+                tensors.append(torch.from_numpy(arrays))
+
+        return tensors
 
     def __len__(self):
         return len(self.samples)

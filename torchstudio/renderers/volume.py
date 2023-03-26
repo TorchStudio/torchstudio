@@ -21,13 +21,15 @@ class Volume(Renderer):
             Values can be 'viridis', 'plasma', 'inferno', 'magma', 'cividis'
         colors: List of colors for each channel for multi channels volumes (looped if necessary)
         rotate (int): Number of time to rotate the bitmap by 90 degree (counter-clockwise)
+        normalize (bool): Normalize values
     """
-    def __init__(self, colormap='inferno', colors=['#ff0000','#00ff00','#0000ff','#ffff00','#00ffff','#ff00ff'], rotate=0, invert=False):
+    def __init__(self, colormap='inferno', colors=['#ff0000','#00ff00','#0000ff','#ffff00','#00ffff','#ff00ff'], rotate=0, invert=False, normalize=False):
         super().__init__()
         self.colormap=colormap
         self.colors=colors
         self.rotate=rotate
         self.invert=invert
+        self.normalize=normalize
 
     def render(self, title, tensor, size, dpi, shift=(0,0,0,0), scale=(1,1,1,1), input_tensors=[], target_tensor=None, labels=[]):
         #check dimensions
@@ -51,6 +53,12 @@ class Volume(Renderer):
 
         if self.rotate>0:
             tensor=np.rot90(tensor, self.rotate, axes=(1, 2))
+
+        tensor=tensor.astype(np.float32)
+        if self.normalize:
+            max_value=np.amax(tensor)
+            if max_value>0:
+                tensor=tensor/max_value
 
         #apply luminosity and conversion to uint8, then transform CHW to HWC
         tensor = np.multiply(np.clip(np.power(np.clip(tensor*scale[0],0,1),1/scale[3]),0,1),255).astype(np.uint8)

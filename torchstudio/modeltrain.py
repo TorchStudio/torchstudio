@@ -447,7 +447,7 @@ while True:
         if error_msg:
             print("Error exporting:", error_msg, file=sys.stderr)
         else:
-            error_msg, torchscript_model = safe_exec(torch.onnx.export,{'model':torchscript_model, 'args':input_tensors, 'f':tc.decode_strings(msg_data)[0], 'opset_version':12})
+            error_msg, torchscript_model = safe_exec(torch.onnx.export,{'model':torchscript_model, 'args':input_tensors, 'f':tc.decode_strings(msg_data)[0], 'input_names': eval(tc.decode_strings(msg_data)[1]), 'output_names': eval(tc.decode_strings(msg_data)[2]), 'dynamic_axes': eval(tc.decode_strings(msg_data)[3]), 'opset_version':17})
             if error_msg:
                 print("Error exporting:", error_msg, file=sys.stderr)
             else:

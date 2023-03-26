@@ -1,3 +1,8 @@
+#otherwise conda install may fail
+del __file__
+__package__=None
+__spec__=None
+
 import sys
 import importlib
 import importlib.util
@@ -25,7 +30,7 @@ tqdm.__init__=init_patch
 
 if not args.package:
     #https://edcarp.github.io/introduction-to-conda-for-data-scientists/03-using-packages-and-channels/index.html#alternative-syntax-for-installing-packages-from-specific-channels
-    conda_install=f"{args.channel}::pytorch {args.channel}::torchvision {args.channel}::torchaudio {args.channel}::torchtext"
+    conda_install=f"pytorch torchvision torchaudio torchtext"
     if (sys.platform.startswith('win') or sys.platform.startswith('linux')):
         if args.cuda:
             print("Checking the latest supported CUDA version...")
@@ -47,18 +52,20 @@ if not args.package:
             highest_cuda_string='.'.join([str(value) for value in highest_cuda_version])
             print("Using CUDA "+highest_cuda_string)
             print("")
-            conda_install+=f" {args.channel}::pytorch-cuda="+highest_cuda_string+" -c nvidia"
+            conda_install+=" pytorch-cuda="+highest_cuda_string+" -c "+args.channel+" -c nvidia"
         else:
-            conda_install+=f" {args.channel}::cpuonly"
+            conda_install+=" cpuonly -c "+args.channel
+    else:
+        conda_install+=" -c "+args.channel
     print(f"Downloading and installing {args.channel} packages...")
     print("")
-    conda_install+=" -k" #allow insecure ssl connections
     # https://stackoverflow.com/questions/41767340/using-conda-install-within-a-python-script
     (stdout_str, stderr_str, return_code_int) = Conda.run_command(Conda.Commands.INSTALL,conda_install.split(),use_exception_handler=True,stdout=sys.stdout,stderr=sys.stderr)
     if return_code_int!=0:
         exit(return_code_int)
     print("")
 
+    # onnx required for onnx export
     # datasets(+huggingface_hub) is required by hugging face hub
     # scipy required by torchvision: Caltech ImageNet SBD SVHN datasets and Inception v3 GoogLeNet models
     # pandas required by the dataset tutorial: https://pytorch.org/tutorials/beginner/data_loading_tutorial.html
@@ -66,7 +73,7 @@ if not args.package:
     # python-graphviz required by torchstudio graph
     # paramiko required for ssh connections (+updated cffi required on intel mac)
     # pysoundfile required by torchaudio datasets: https://pytorch.org/audio/stable/backend.html#soundfile-backend
-    conda_install="datasets scipy pandas matplotlib-base python-graphviz paramiko pysoundfile"
+    conda_install="onnx datasets scipy pandas matplotlib-base python-graphviz paramiko pysoundfile"
     if sys.platform.startswith('darwin'):
         conda_install+=" cffi"
 
@@ -75,7 +82,7 @@ else:
 
 print("Downloading and installing conda-forge packages...")
 print("")
-conda_install+=" -c conda-forge -k"
+conda_install+=" -c conda-forge"
 (stdout_str, stderr_str, return_code_int) = Conda.run_command(Conda.Commands.INSTALL,conda_install.split(),use_exception_handler=True,stdout=sys.stdout,stderr=sys.stderr)
 if return_code_int!=0:
     exit(return_code_int)
