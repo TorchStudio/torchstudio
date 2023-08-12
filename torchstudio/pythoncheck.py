@@ -58,16 +58,12 @@ if len(missing_modules)>0:
 else:
     #install ssh support if necessary
     if not importlib.util.find_spec("paramiko"):
-        if importlib.util.find_spec("conda"):
-            print("Installing Paramiko (SSH for Python) using Conda...", file=sys.stderr)
-            import conda.cli.python_api as Conda
-            Conda.run_command(Conda.Commands.INSTALL,['paramiko','-c','conda-forge', "--quiet", "--quiet"]) #2 times quiet to remove all verbose
-        elif importlib.util.find_spec("pip"):
+        if importlib.util.find_spec("pip"):
             print("Installing Paramiko (SSH for Python) using Pip...", file=sys.stderr)
             import subprocess
             subprocess.run([sys.executable, "-m", "pip", "install", "paramiko", "--quiet", "--quiet"]) #2 times quiet to remove all verbose
         else:
-            print("Error: Conda or Pip is required to install Paramiko (SSH for Python).", file=sys.stderr)
+            print("Error: Pip is required to install Paramiko (SSH for Python).", file=sys.stderr)
             exit(1)
 
     #finally, list available devices

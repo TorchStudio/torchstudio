@@ -130,13 +130,16 @@ class GenericLoader(Dataset):
         tensors = []
         if path.endswith('.jpg') or path.endswith('.jpeg') or path.endswith('.png') or path.endswith('.webp') or path.endswith('.tif') or path.endswith('.tiff'):
             img=Image.open(path)
-            for i in range(img.n_frames):
+            frames = 1
+            if hasattr( img, 'n_frames'):
+                frames = img.n_frames
+            for i in range(frames):
                 if img.mode=='1' or img.mode=='L' or img.mode=='P':
                     tensors.append(torch.from_numpy(np.array(img, dtype=np.uint8)))
                 else:
                     trans=torchvision.transforms.ToTensor()
                     tensors.append(trans(img))
-                if i<(img.n_frames-1):
+                if i<(frames-1):
                     img.seek(img.tell()+1)
 
         if path.endswith('.mp3') or path.endswith('.wav') or path.endswith('.ogg') or path.endswith('.flac'):

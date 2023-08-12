@@ -1,68 +1,60 @@
-#otherwise conda install may fail
-del __file__
-__package__=None
-__spec__=None
-
 import sys
 import importlib
 import importlib.util
 import argparse
+import subprocess
 parser = argparse.ArgumentParser()
-parser.add_argument("--channel", help="pytorch channel", type=str, default='pytorch')
 parser.add_argument("--cuda", help="install nvidia gpu support", action="store_true", default=False)
 parser.add_argument("--package", help="install specific package", action='append', nargs='+', default=[])
 args, unknown = parser.parse_known_args()
 
-if importlib.util.find_spec("conda") is None:
-    print("Error: A Conda environment is required to install the required packages.", file=sys.stderr)
+if importlib.util.find_spec("pip") is None:
+    print("Error: Pip is required to install the required packages.", file=sys.stderr)
     exit()
 
-import conda.cli.python_api as Conda
-
-#increase rows (from default 20 when no terminal is found) to display all parallel packages downloads at once
-from tqdm import tqdm
-init_source=tqdm.__init__
-def init_patch(self, **kwargs):
-    kwargs['ncols']=80
-    kwargs['nrows']=80
-    init_source(self, **kwargs)
-tqdm.__init__=init_patch
-
 if not args.package:
-    #https://edcarp.github.io/introduction-to-conda-for-data-scientists/03-using-packages-and-channels/index.html#alternative-syntax-for-installing-packages-from-specific-channels
-    conda_install=f"pytorch torchvision torchaudio torchtext"
+    #first install python-graphviz as it only exist as a conda package, and conda is recommended before pip: https://www.anaconda.com/blog/using-pip-in-a-conda-environment
+    if importlib.util.find_spec("conda") is None:
+        print("Error: Conda is required to install the graphviz package.", file=sys.stderr)
+        exit()
+    else:
+        print("Downloading and installing the graphviz package...")
+        print("")
+    result = subprocess.run([sys.executable, "-m", "conda", "install", "-y", "python-graphviz", "-c", "conda-forge"])
+    if result.returncode != 0:
+        exit(result.returncode)
+    print("")
+
+    pip_install="torch torchvision torchaudio torchtext"
     if (sys.platform.startswith('win') or sys.platform.startswith('linux')):
         if args.cuda:
             print("Checking the latest supported CUDA version...")
-            highest_cuda_version=(11,6) #highest supported cuda version for PyTorch 1.12
+            highest_cuda_version=118 #11.8 highest supported cuda version for PyTorch 2.0
             import requests
             try:
-                pytorch_repo = requests.get("https://anaconda.org/"+args.channel+"/pytorch/files")
+                pytorch_repo = requests.get("https://download.pytorch.org/whl/torch")
             except:
                 print("Could not retrieve the latest supported CUDA version")
             else:
                 import re
-                regex_request=re.compile("cuda([0-9]+.[0-9]+)")
+                regex_request=re.compile("cu([0-9]+)")
                 results = re.findall(regex_request, pytorch_repo.text)
-                highest_cuda_version=(11,6)
+                highest_cuda_version=118
                 for cuda_string in results:
-                    cuda_version=tuple(int(i) for i in cuda_string.split('.'))
+                    cuda_version=int(cuda_string)
                     if  cuda_version > highest_cuda_version:
                         highest_cuda_version = cuda_version
-            highest_cuda_string='.'.join([str(value) for value in highest_cuda_version])
+            highest_cuda_string=str(highest_cuda_version)[:2]+"."+str(highest_cuda_version)[2:]
             print("Using CUDA "+highest_cuda_string)
             print("")
-            conda_install+=" pytorch-cuda="+highest_cuda_string+" -c "+args.channel+" -c nvidia"
-        else:
-            conda_install+=" cpuonly -c "+args.channel
-    else:
-        conda_install+=" -c "+args.channel
-    print(f"Downloading and installing {args.channel} packages...")
+            pip_install+=" --index-url https://download.pytorch.org/whl/cu"+str(highest_cuda_version)
+
+    print("Downloading and installing pytorch packages...")
     print("")
-    # https://stackoverflow.com/questions/41767340/using-conda-install-within-a-python-script
-    (stdout_str, stderr_str, return_code_int) = Conda.run_command(Conda.Commands.INSTALL,conda_install.split(),use_exception_handler=True,stdout=sys.stdout,stderr=sys.stderr)
-    if return_code_int!=0:
-        exit(return_code_int)
+
+    result = subprocess.run([sys.executable, "-m", "pip", "install"]+pip_install.split())
+    if result.returncode != 0:
+        exit(result.returncode)
     print("")
 
     # onnx required for onnx export
@@ -73,16 +65,13 @@ if not args.package:
     # python-graphviz required by torchstudio graph
     # paramiko required for ssh connections (+updated cffi required on intel mac)
     # pysoundfile required by torchaudio datasets: https://pytorch.org/audio/stable/backend.html#soundfile-backend
-    conda_install="onnx datasets scipy pandas matplotlib-base python-graphviz paramiko pysoundfile"
-    if sys.platform.startswith('darwin'):
-        conda_install+=" cffi"
+    pip_install="onnx datasets scipy pandas matplotlib paramiko pysoundfile"
 
 else:
-    conda_install=" ".join(args.package[0])
+    pip_install=" ".join(args.package[0])
 
-print("Downloading and installing conda-forge packages...")
+print("Downloading and installing additional packages...")
 print("")
-conda_install+=" -c conda-forge"
-(stdout_str, stderr_str, return_code_int) = Conda.run_command(Conda.Commands.INSTALL,conda_install.split(),use_exception_handler=True,stdout=sys.stdout,stderr=sys.stderr)
-if return_code_int!=0:
-    exit(return_code_int)
+result = subprocess.run([sys.executable, "-m", "pip", "install"]+pip_install.split())
+if result.returncode != 0:
+    exit(result.returncode)

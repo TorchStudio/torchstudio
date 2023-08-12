@@ -163,7 +163,7 @@ while True:
                                     output_shape=output_shape[:-1]
                                 else:
                                     output_dtype=str(node.meta['tensor_meta'].dtype)
-                                    output_shape=','.join([str(i) for i in list(node.meta['tensor_meta'].shape)[1:]])
+                                    output_shape=','.join([str(i) for i in list(node.meta['tensor_meta'].shape)])
 
                             if node.op == 'placeholder':
                                 node_type='input'

@@ -561,7 +561,8 @@ while True:
                         filtered_nodes[id]['inputs'].remove(input)
                         filtered_nodes[id]['inputs'].append(sub_input)
                         filtered_nodes[id]['input_shape'][sub_input]=nodes[input]['output_shape']
-                    del filtered_nodes[input]
+                    if input in filtered_nodes:
+                        del filtered_nodes[input]
         #del non-referenced getitems
         nodes=copy.deepcopy(filtered_nodes)
         for id, node in nodes.items():
@@ -599,8 +600,6 @@ while True:
                 output_shape=filtered_nodes[input]['output_shape']
                 if input in node['input_shape']:
                     output_shape=node['input_shape'][input]
-                if batch==1:
-                    output_shape=('N,' if output_shape else 'N')+output_shape
                 graph.edge(input,id,"  "+output_shape.replace(',','\u00d7')) #replace comma by multiplication sign
 
         if legend==1:
