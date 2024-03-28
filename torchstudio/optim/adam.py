@@ -20,7 +20,7 @@ class Adam(optim.Adam):
             algorithm from the paper `On the Convergence of Adam and Beyond`_
             (default: False)
 
-    .. _Adam\: A Method for Stochastic Optimization:
+    .. _Adam: A Method for Stochastic Optimization:
         https://arxiv.org/abs/1412.6980
     .. _Decoupled Weight Decay Regularization:
         https://arxiv.org/abs/1711.05101

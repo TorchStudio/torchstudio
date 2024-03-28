@@ -268,13 +268,13 @@ if __name__ == "__main__":
             print("Cleaning TorchStudio cache...", file=sys.stderr)
             stdin, stdout, stderr = sshclient.exec_command('rm -r -f TorchStudio/cache')
             exit_status = stdout.channel.recv_exit_status()
-            stdin, stdout, stderr = sshclient.exec_command('rmdir /s /q TorchStudio\cache')
+            stdin, stdout, stderr = sshclient.exec_command('rmdir /s /q TorchStudio\\cache')
             exit_status = stdout.channel.recv_exit_status()
         if args.clean==1:
             print("Deleting TorchStudio environment...", file=sys.stderr)
             stdin, stdout, stderr = sshclient.exec_command('rm -r -f TorchStudio/python')
             exit_status = stdout.channel.recv_exit_status()
-            stdin, stdout, stderr = sshclient.exec_command('rmdir /s /q TorchStudio\python')
+            stdin, stdout, stderr = sshclient.exec_command('rmdir /s /q TorchStudio\\python')
             exit_status = stdout.channel.recv_exit_status()
         if args.clean==2:
             print("Deleting all TorchStudio files...", file=sys.stderr)

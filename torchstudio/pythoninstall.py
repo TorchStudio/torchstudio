@@ -3,6 +3,7 @@ import importlib
 import importlib.util
 import argparse
 import subprocess
+import requests
 parser = argparse.ArgumentParser()
 parser.add_argument("--cuda", help="install nvidia gpu support", action="store_true", default=False)
 parser.add_argument("--package", help="install specific package", action='append', nargs='+', default=[])
@@ -30,7 +31,6 @@ if not args.package:
         if args.cuda:
             print("Checking the latest supported CUDA version...")
             highest_cuda_version=118 #11.8 highest supported cuda version for PyTorch 2.0
-            import requests
             try:
                 pytorch_repo = requests.get("https://download.pytorch.org/whl/torch")
             except:

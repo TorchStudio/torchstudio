@@ -95,7 +95,7 @@ class OneCycle(lr_scheduler.OneCycleLR):
         >>>         scheduler.step()
 
 
-    .. _Super-Convergence\: Very Fast Training of Neural Networks Using Large Learning Rates:
+    .. _Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates:
         https://arxiv.org/abs/1708.07120
     """
     def __init__(self,

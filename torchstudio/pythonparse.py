@@ -148,7 +148,7 @@ def filter_parent_objects(objects:List[Dict]) -> List[Dict]:
         for subobject in objects:
             name=object['name']
             if subobject['name']!=name:
-                if re.search('[ =+]'+name+'[ ]*\(', subobject['code']):
+                if re.search(r'[ =+]'+name+r'[ ]*\(', subobject['code']):
                     unique=False
         if unique:
             parent_objects.append(object)
