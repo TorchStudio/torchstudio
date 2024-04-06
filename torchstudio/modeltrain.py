@@ -16,7 +16,7 @@ import io
 from tqdm.auto import tqdm
 from collections.abc import Iterable
 import threading
-
+import math
 
 class CachedDataset(Dataset):
     def __init__(self, train=True, hash=None):
@@ -294,6 +294,8 @@ while True:
 
         #training
         model.train()
+        if hasattr(optimizer, 'train'):
+            optimizer.train()
         train_loss = 0
         train_metrics = []
         for metric in metrics:
@@ -334,6 +336,8 @@ while True:
 
         #validation
         model.eval()
+        if hasattr(optimizer, 'eval'):
+            optimizer.eval()
         valid_loss = 0
         valid_metrics = []
         for metric in metrics:

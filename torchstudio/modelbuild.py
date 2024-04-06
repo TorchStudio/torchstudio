@@ -238,8 +238,8 @@ while True:
                 for tensor in output_tensors:
                     metric.append("Accuracy")
 
-                tc.send_msg(app_socket, 'SetHyperParametersValues', tc.encode_ints([64,0,100,20]))
-                tc.send_msg(app_socket, 'SetHyperParametersNames', tc.encode_strings(loss+metric+['Adam','Step']))
+                tc.send_msg(app_socket, 'SetHyperParametersValues', tc.encode_ints([64,0,100,30]))
+                tc.send_msg(app_socket, 'SetHyperParametersNames', tc.encode_strings(loss+metric+['AdamWScheduleFree','NoSchedule']))
 
     if msg_type == 'Exit':
         break

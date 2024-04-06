@@ -130,7 +130,7 @@ def plot_metrics(prefix, size, dpi, samples=100, labels=[],
 
     canvas = plt.get_current_fig_manager().canvas
     canvas.draw()
-    img = PIL.Image.frombytes('RGB',canvas.get_width_height(),canvas.tostring_rgb())
+    img = PIL.Image.frombytes('RGBA',canvas.get_width_height(),canvas.buffer_rgba())
     plt.close()
     return img
 

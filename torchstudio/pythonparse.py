@@ -157,6 +157,7 @@ def filter_parent_objects(objects:List[Dict]) -> List[Dict]:
 
 generated_class="""\
 import typing
+from typing import Any, Callable, List, Tuple, Union, Sequence, Optional
 import pathlib
 import torch
 import torch.nn as nn
@@ -172,6 +173,7 @@ class {1}({2}):
 
 generated_function="""\
 import typing
+from typing import Any, Callable, List, Tuple, Union, Sequence, Optional
 import pathlib
 import torch
 import torch.nn as nn

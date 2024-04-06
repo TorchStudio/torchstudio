@@ -1,7 +1,7 @@
 import torch.optim.lr_scheduler as lr_scheduler
 
 class OneCycle(lr_scheduler.OneCycleLR):
-    """Sets the learning rate of each parameter group according to the
+    r"""Sets the learning rate of each parameter group according to the
     1cycle learning rate policy. The 1cycle policy anneals the learning
     rate from an initial learning rate to some maximum learning rate and then
     from that maximum learning rate to some minimum learning rate much lower
@@ -84,24 +84,32 @@ class OneCycle(lr_scheduler.OneCycleLR):
             number of *batches* computed, not the total number of epochs computed.
             When last_epoch=-1, the schedule is started from the beginning.
             Default: -1
+        verbose (bool): If ``True``, prints a message to stdout for
+            each update. Default: ``False``.
+
+            .. deprecated:: 2.2
+                ``verbose`` is deprecated. Please use ``get_last_lr()`` to access the
+                learning rate.
 
     Example:
+        >>> # xdoctest: +SKIP
         >>> data_loader = torch.utils.data.DataLoader(...)
         >>> optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
         >>> scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.01, steps_per_epoch=len(data_loader), epochs=10)
         >>> for epoch in range(10):
         >>>     for batch in data_loader:
         >>>         train_batch(...)
+        >>>         optimizer.step()
         >>>         scheduler.step()
 
 
-    .. _Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates:
+    .. _Super-Convergence\: Very Fast Training of Neural Networks Using Large Learning Rates:
         https://arxiv.org/abs/1708.07120
     """
     def __init__(self,
                  optimizer,
-                 max_lr=1,
-                 total_steps=200,
+                 max_lr,
+                 total_steps=None,
                  epochs=None,
                  steps_per_epoch=None,
                  pct_start=0.3,
@@ -112,5 +120,6 @@ class OneCycle(lr_scheduler.OneCycleLR):
                  div_factor=25.,
                  final_div_factor=1e4,
                  three_phase=False,
-                 last_epoch=-1):
-        super().__init__(optimizer, max_lr, total_steps, epochs, steps_per_epoch, pct_start, anneal_strategy, cycle_momentum, max_momentum, div_factor, final_div_factor, three_phase, last_epoch, verbose=False)
+                 last_epoch=-1,
+                 verbose="deprecated"):
+        super().__init__(optimizer, max_lr, total_steps, epochs, steps_per_epoch, pct_start, anneal_strategy, cycle_momentum, max_momentum, div_factor, final_div_factor, three_phase, last_epoch, verbose)

@@ -138,7 +138,7 @@ def encode_numpy_tensors(tensors):
     buffer = bytes()
     for tensor in tensors:
         size=len(tensor.shape)
-        buffer+=bytes(tensor.dtype.byteorder.replace('=','<' if sys.byteorder == 'little' else '>')+tensor.dtype.kind,'utf-8')+tensor.dtype.itemsize.to_bytes(1,byteorder='little')+struct.pack(f'<B{size}I',size,*tensor.shape)+tensor.tobytes()
+        buffer+=bytes(tensor.dtype.byteorder.replace('=','<' if sys.byteorder == 'little' else '>')+tensor.dtype.kind,'utf-8')+tensor.dtype.itemsize.to_bytes(1,byteorder='little')+struct.pack(f'<B{size}I',size,*tensor.shape)+tensor.data
     return buffer
 
 def decode_torch_tensors(data):
