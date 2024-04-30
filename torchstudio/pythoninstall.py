@@ -14,18 +14,7 @@ if importlib.util.find_spec("pip") is None:
     exit()
 
 if not args.package:
-    #first install python-graphviz as it only exist as a conda package, and conda is recommended before pip: https://www.anaconda.com/blog/using-pip-in-a-conda-environment
-    if importlib.util.find_spec("conda") is None:
-        print("Error: Conda is required to install the graphviz package.", file=sys.stderr)
-        exit()
-    else:
-        print("Downloading and installing the graphviz package...")
-        print("")
-    result = subprocess.run([sys.executable, "-m", "conda", "install", "-y", "python-graphviz", "-c", "conda-forge"])
-    if result.returncode != 0:
-        exit(result.returncode)
-    print("")
-
+    #NB: conda install are recommended before pip: https://www.anaconda.com/blog/using-pip-in-a-conda-environment
     pip_install="torch torchvision torchaudio torchtext"
     if (sys.platform.startswith('win') or sys.platform.startswith('linux')):
         if args.cuda:

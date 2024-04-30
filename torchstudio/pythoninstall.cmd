@@ -8,15 +8,12 @@ cd "$SCRIPTDIR"
 cd ..
 
 pythonpath="$(pwd)/python"
-channel="pytorch"
 cuda=""
 packages=""
 uninstall=""
 while [ "$1" != "" ]; do
     if [ $1 == "--path" ]; then
         shift; pythonpath=$1
-    elif [ $1 == "--channel" ]; then
-        shift; channel=$1
     elif [ $1 == "--cuda" ]; then
         cuda="--cuda"
     elif [ $1 == "--package" ]; then
@@ -100,7 +97,15 @@ fi
 rm -f "$file"
 
 PATH="$PATH;$pythonpath/bin"
-"$pythonpath/bin/python" -u -B -X utf8 -m torchstudio.pythoninstall --channel $channel $cuda $packages
+
+"$pythonpath/bin/conda" install -y python-graphviz -c conda-forge
+if [ $? != 0 ]; then
+    echo "" 1>&2
+    echo "Error while installing python-graphviz" 1>&2
+    exit 1
+fi
+
+"$pythonpath/bin/python" -u -B -X utf8 -m torchstudio.pythoninstall $cuda $packages
 if [ $? != 0 ]; then
     echo "" 1>&2
     echo "Error while installing packages" 1>&2
@@ -121,16 +126,12 @@ cd /D "%~dp0"
 cd ..
 
 set pythonpath=%cd%\python
-set channel=pytorch
 set cuda=
 set packages=
 set uninstall=
 :args
 if "%~1" == "--path" (
     set pythonpath=%~2
-    shift
-) else if "%~1" == "--channel" (
-    set channel=%~2
     shift
 ) else if "%~1" == "--cuda" (
     set cuda=--cuda
@@ -194,7 +195,15 @@ if ERRORLEVEL 1 (
 del %file% 2>nul
 
 set PATH=%PATH%;%pythonpath%;%pythonpath%\Library\mingw-w64\bin;%pythonpath%\Library\bin;%pythonpath%\bin
-"%pythonpath%\python" -u -B -X utf8 -m torchstudio.pythoninstall --channel %channel% %cuda% %packages%
+
+call "%pythonpath%\condabin\conda" install -y python-graphviz -c conda-forge
+if ERRORLEVEL 1 (
+    echo. 1>&2
+    echo Error while installing python-graphviz 1>&2
+    exit /B 1
+)
+
+"%pythonpath%\python" -u -B -X utf8 -m torchstudio.pythoninstall %cuda% %packages%
 if ERRORLEVEL 1 (
     echo. 1>&2
     echo Error while installing packages 1>&2
